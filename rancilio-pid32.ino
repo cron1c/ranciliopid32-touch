@@ -9,7 +9,7 @@
 #include <WiFiUdp.h>
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
-const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
+const char* sysVersion PROGMEM  = "Version 1.9.5-c Touch";
 LV_FONT_DECLARE(icon_coffee_40);
 
 /********************************************************

@@ -1,47 +1,16 @@
-
-/********************************************************
-   Version 1.9.4 MASTER (04.07.2019)
-  Key facts: major revision
-  - Check the PIN Ports in the CODE!
-  - Find your changerate of the machine, can be wrong, test it!
-******************************************************/
-// Include icon.h
-#include "icon.h"
-#include "scale.h"
-
-// Debug mode is active if #define DEBUGMODE is set
-#define DEBUGMODE
-
-#ifndef DEBUGMODE
-#define DEBUG_println(a)
-#define DEBUG_print(a)
-#define DEBUGSTART(a)
-#else
-#define DEBUG_println(a) Serial.println(a);
-#define DEBUG_print(a) Serial.print(a);
-#define DEBUGSTART(a) Serial.begin(a);
-#endif
-
-//#define BLYNK_PRINT Serial
-//#define BLYNK_DEBUG
-
-//Define pins for outputs
-#define pinRelayVentil    99
-#define pinRelayPumpe    99
-#define pinRelayHeater    23
-
-//Libraries for OTA
-#include <ArduinoOTA.h>
-//#include <ESP8266WiFi.h> old esp8266
-#include <WiFi.h> // new esp32 wifi
-//#include <ESP8266mDNS.h>
-#include <WiFiUdp.h>
-
+ #include <lvgl.h>
+#include <Ticker.h>
+#include <TFT_eSPI.h>
+#include <stdio.h>
+#define LVGL_TICK_PERIOD 20
 #include "userConfig.h" // needs to be configured by the user
-//#include "Arduino.h"
+//#include "icon_coffee_40.h"
+#include <WiFi.h>
+#include <WiFiUdp.h>
 #include <EEPROM.h>
-
-const char* sysVersion PROGMEM  = "Version 1.9.4-c Master";
+#include <ArduinoOTA.h>
+const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
+LV_FONT_DECLARE(icon_coffee_40);
 
 /********************************************************
   definitions below must be changed in the userConfig.h file
@@ -71,7 +40,152 @@ const char* OTApass = OTAPASS;
 
 //Blynk
 const char* blynkaddress  = BLYNKADDRESS;
+#define BLYNK_PRINT Serial
+//#include <BlynkSimpleEsp8266.h> old esp
+#include <BlynkSimpleEsp32.h>
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
+static void create_tab1(lv_obj_t * parent);
+static void create_tab2(lv_obj_t * parent);
+static void create_tab3(lv_obj_t * parent);
 
+
+
+Ticker tick; /* timer for interrupt handler */
+TFT_eSPI tft = TFT_eSPI(); /* TFT instance */
+static lv_disp_buf_t disp_buf;
+static lv_color_t buf[LV_HOR_RES_MAX * 10];
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+float soll = 95;
+float ist;
+int P = 699;
+int I = 399;
+int D = 100;
+static char p_id[4];
+static char pi_d[4];
+static char pid_[4];
+ lv_obj_t * label;
+ lv_obj_t * labelSet;
+ lv_obj_t * labelP;
+ lv_obj_t * labelI;
+ lv_obj_t * labelD;
+ lv_obj_t * lmeter;
+ lv_obj_t * lmeter1;
+ lv_anim_t a;
+ lv_obj_t * chart;
+ lv_chart_series_t * s1;
+//Define pins for outputs
+#define pinRelayVentil    99
+#define pinRelayPumpe    99
+#define pinRelayHeater    22
+
+
+/**********************
+ *      MACROS
+ **********************/
+// Debug mode is active if #define DEBUGMODE is set
+#define DEBUGMODE
+
+#ifndef DEBUGMODE
+#define DEBUG_println(a)
+#define DEBUG_print(a)
+#define DEBUGSTART(a)
+#else
+#define DEBUG_println(a) Serial.println(a);
+#define DEBUG_print(a) Serial.print(a);
+#define DEBUGSTART(a) Serial.begin(a);
+#endif
+/**********************
+ *   GLOBAL FUNCTIONS
+ **********************/
+
+/**
+ * Create a test screen with a lot objects and apply the given theme on them
+ * @param th pointer to a theme
+ */
+void lv_test_theme_1(lv_theme_t * th)
+{
+    lv_theme_set_current(th);
+    th = lv_theme_get_current();    /*If `LV_THEME_LIVE_UPDATE  1` `th` is not used directly so get the real theme after set*/
+    lv_obj_t * scr = lv_cont_create(NULL, NULL);
+    lv_disp_load_scr(scr);
+
+    lv_obj_t * tv = lv_tabview_create(scr, NULL);
+    lv_obj_set_size(tv, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL));
+    lv_obj_t * tab1 = lv_tabview_add_tab(tv, LV_SYMBOL_HOME " PID");
+    lv_obj_t * tab2 = lv_tabview_add_tab(tv, LV_SYMBOL_REFRESH " Graph");
+    lv_obj_t * tab3 = lv_tabview_add_tab(tv, LV_SYMBOL_SETTINGS " Settings");
+
+    create_tab1(tab1);
+    create_tab2(tab2);
+    create_tab3(tab3);
+}
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
+
+
+
+ 
+
+
+ 
+/* Display flushing */
+void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
+{
+  uint16_t c;
+
+  tft.startWrite(); /* Start new TFT transaction */
+  tft.setAddrWindow(area->x1, area->y1, (area->x2 - area->x1 + 1), (area->y2 - area->y1 + 1)); /* set the working window */
+  for (int y = area->y1; y <= area->y2; y++) {
+    for (int x = area->x1; x <= area->x2; x++) {
+      c = color_p->full;
+      tft.writeColor(c, 1);
+      color_p++;
+    }
+  }
+  tft.endWrite(); /* terminate TFT transaction */
+  lv_disp_flush_ready(disp); /* tell lvgl that flushing is done */
+}
+
+/* Interrupt driven periodic handler */
+static void lv_tick_handler(void)
+{
+
+  lv_tick_inc(LVGL_TICK_PERIOD);
+}
+
+
+bool my_input_read(lv_indev_drv_t * indev,lv_indev_data_t *data )
+{
+
+// Use TFT_eSPI for touch events
+uint8_t bPressed = 0;
+uint16_t nX=0;
+uint16_t nY=0;
+static uint16_t prev_x, prev_y;
+
+bPressed = tft.getTouch(&nX,&nY);
+
+if (bPressed > 0) {
+data->point.x = nX;
+data->point.y = nY;
+data->state = LV_INDEV_STATE_PR;
+prev_x = data->point.x;
+prev_y = data->point.y;
+} else {
+data->point.x = prev_x;
+data->point.y = prev_y;
+data->state = LV_INDEV_STATE_REL;      
+}
+
+return false; //No buffering so no more data read/
+}
 
 /********************************************************
    Vorab-Konfig
@@ -142,43 +256,6 @@ boolean sensorError = false;
 int error = 0;
 int maxErrorCounter = 10 ;  //depends on intervaltempmes* , define max seconds for invalid data
 
-
-/********************************************************
-   DISPLAY
-******************************************************/
-#include <U8x8lib.h>
-//#include <U8g2lib.h>
-//#include <Adafruit_GFX.h>
-#include <SPI.h>
-//#ifdef U8X8_HAVE_HW_SPI
-//#include <SPI.h>
-//#endif
-U8X8_SSD1306_128X32_UNIVISION_SW_I2C u8x8(/* clock=*/ 99, /* data=*/ 99, /* reset=*/ 99);   //Display initalisieren
-//U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0);
-
-// Display 128x64
-//#include <SPI.h>
-#include <Wire.h>
-#include "display.h"
-#include <Adafruit_GFX.h>
-//#include <ACROBOTIC_SSD1306.h>
-//#include <Adafruit_SSD1306.h>
-//#define OLED_RESET 16
-//Adafruit_SSD1306 display(OLED_RESET);
-#include <Adafruit_SSD1351.h>
-Adafruit_SSD1351 display = Adafruit_SSD1351(SCREEN_WIDTH, SCREEN_HEIGHT, CS_PIN, DC_PIN, MOSI_PIN, SCLK_PIN, RST_PIN); 
-//Adafruit_SSD1351 display = Adafruit_SSD1351(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, CS_PIN, DC_PIN, RST_PIN);
-//Adafruit_SSD1351 display = Adafruit_SSD1351(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, CS_PIN, DC_PIN, RST_PIN);
-#define XPOS 0
-#define YPOS 1
-#define DELTAY 2
-
-
-//#if (SSD1306_LCDHEIGHT != 64)
-//#error("Height incorrect, please fix Adafruit_SSD1306.h!");
-//#endif
-
-
 /********************************************************
    PID
 ******************************************************/
@@ -225,7 +302,7 @@ PID bPID(&Input, &Output, &setPoint, aggKp, aggKi, aggKd, PonE, DIRECT);
 #include <OneWire.h>
 #include <DallasTemperature.h>
 // Data wire is plugged into port 2 on the Arduino
-#define ONE_WIRE_BUS 2
+#define ONE_WIRE_BUS 99
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature.
@@ -241,24 +318,6 @@ DeviceAddress sensorDeviceAddress;
 TSIC Sensor1(TSICPIN);    // only Signalpin, VCCpin unused by default
 uint16_t temperature = 0;
 float Temperatur_C = 0;
-
-/********************************************************
-   BLYNK
-******************************************************/
-#define BLYNK_PRINT Serial
-//#include <BlynkSimpleEsp8266.h> old esp
-#include <BlynkSimpleEsp32.h>
-
-//Zeitserver
-/*
-   NOT KNOWN WHAT THIS IS USED FOR
-  #include <TimeLib.h>
-  #include <WidgetRTC.h>
-  BlynkTimer timer;
-  WidgetRTC rtc;
-  WidgetBridge bridge1(V1);
-*/
-
 //Update Intervall zur App
 unsigned long previousMillisBlynk;  // initialisation at the end of init()
 const long intervalBlynk = 1000;
@@ -267,24 +326,13 @@ int blynksendcounter = 1;
 //Update für Display
 unsigned long previousMillisDisplay;  // initialisation at the end of init()
 const long intervalDisplay = 500;
-
-
-/*
- * Waage Initialisieren
- * 
- */
-
-
-
-
-
 /********************************************************
    BLYNK WERTE EINLESEN und Definition der PINS
 ******************************************************/
 
 
 
-  BLYNK_CONNECTED() {
+BLYNK_CONNECTED() {
   if (Offlinemodus == 0) {
     Blynk.syncAll();
     //rtc.begin();
@@ -349,60 +397,6 @@ BLYNK_WRITE(V34) {
   brewboarder =  param.asDouble();
 }
 
-
-/********************************************************
-  Notstop wenn Temp zu hoch
-*****************************************************/
-void testEmergencyStop(){
-  if (Input > 120){
-    emergencyStop = true;
-  } else if (Input < 100) {
-    emergencyStop = false;
-  }
-}
-
-
-/********************************************************
-  Displayausgabe
-*****************************************************/
-
-void displaymessage(String displaymessagetext, String displaymessagetext2) {
-  if (Display == 2) {
-    /********************************************************
-       DISPLAY AUSGABE
-    ******************************************************/
-    display.setTextSize(1);
-
-
-    display.setTextColor(WHITE,BLACK);
-    display.fillScreen(0);
-
-    //display.clearDisplay();
-    display.drawBitmap(41,2, startLogo_bits,startLogo_width, startLogo_height, WHITE);
-
-    display.setCursor(0, 47);
-
-    display.println(displaymessagetext);
-    display.print(displaymessagetext2);
-    //Rancilio startup logo
-    //draw circle
-    //display.drawCircle(63, 24, 20, WHITE);
-    //display.display();
-   // display.fadeout();
-   // display.fadein();
-  }
-  if (Display == 1) {
-    /********************************************************
-       DISPLAY AUSGABE
-    ******************************************************/
-    u8x8.clear();
-    u8x8.setFont(u8x8_font_chroma48medium8_r);  //Ausgabe vom aktuellen Wert im Display
-    u8x8.setCursor(0, 0);
-    u8x8.println(displaymessagetext);
-    u8x8.print(displaymessagetext2);
-  }
-
-}
 /********************************************************
   Moving average - brewdetection (SW)
 *****************************************************/
@@ -445,8 +439,6 @@ void movAvg() {
   readIndex++;
 
 }
-
-
 /********************************************************
   check sensor value. If < 0 or difference between old and new >25, then increase error.
   If error is equal to maxErrorCounter, then set sensorError
@@ -477,7 +469,6 @@ boolean checkSensor(float tempInput) {
 
   return sensorOK;
 }
-
 /********************************************************
   Refresh temperature.
   Each time checkSensor() is called to verify the value.
@@ -527,7 +518,6 @@ void refreshTemp() {
     }
   }
 }
-
 /********************************************************
     PreInfusion, Brew , if not Only PID
 ******************************************************/
@@ -572,7 +562,7 @@ void brew() {
     }
   }
 }
-     /********************************************************
+ /********************************************************
    Check if Wifi is connected, if not reconnect
  *****************************************************/
  void checkWifi(){
@@ -593,143 +583,6 @@ void brew() {
 
     }
  }
-
-
-/********************************************************
-    send data to display
-******************************************************/
-void printScreen() {
-  if (Display == 1 && !sensorError) {
-    u8x8.setFont(u8x8_font_chroma48medium8_r);  //Ausgabe vom aktuellen Wert im Display
-    u8x8.setCursor(0, 0);
-    u8x8.print("               ");
-    u8x8.setCursor(0, 1);
-    u8x8.print("               ");
-    u8x8.setCursor(0, 2);
-    u8x8.print("               ");
-    u8x8.setCursor(0, 0);
-    u8x8.setCursor(1, 0);
-    u8x8.print(bPID.GetKp());
-    u8x8.setCursor(6, 0);
-    u8x8.print(",");
-    u8x8.setCursor(7, 0);
-    if (bPID.GetKi() != 0){
-    u8x8.print(bPID.GetKp() / bPID.GetKi());}
-    else
-    {u8x8.print("0");}
-    u8x8.setCursor(11, 0);
-    u8x8.print(",");
-    u8x8.setCursor(12, 0);
-    u8x8.print(bPID.GetKd() / bPID.GetKp());
-    u8x8.setCursor(0, 1);
-    u8x8.print("Input:");
-    u8x8.setCursor(9, 1);
-    u8x8.print("   ");
-    u8x8.setCursor(9, 1);
-    u8x8.print(Input);
-    u8x8.setCursor(0, 2);
-    u8x8.print("SetPoint:");
-    u8x8.setCursor(10, 2);
-    u8x8.print("   ");
-    u8x8.setCursor(10, 2);
-    u8x8.print(setPoint);
-    u8x8.setCursor(0, 3);
-    u8x8.print(round((Input * 100) / setPoint));
-    u8x8.setCursor(4, 3);
-    u8x8.print("%");
-    u8x8.setCursor(6, 3);
-    u8x8.print(Output);
-  }
-  if (Display == 2 && !sensorError) {
-    //display.clearDisplay();
-    //display.fillScreen(0);
-    display.drawBitmap(0,0, logo_bits,logo_width, logo_height, WHITE);
-    display.setTextSize(1);
-    display.setTextColor(WHITE,BLACK);
-    display.setCursor(32, 10); 
-    display.print("Ist :  ");
-    display.print(Input, 1);
-    display.print(" ");
-    display.print((char)247);
-    display.println("C");
-    display.setCursor(32, 20); 
-    display.print("Soll:  ");
-    display.print(setPoint, 1);
-    display.print(" ");
-    display.print((char)247);
-    display.println("C");
-   // display.print("Heizen: ");
-    
-   // display.println(" %");
-   
-
-   
-//draw current temp in icon
-   display.drawLine(9, 48, 9, 58 - (Input / 2), WHITE); 
-   display.drawLine(10, 48, 10, 58 - (Input / 2), WHITE);  
-   display.drawLine(11, 48, 11, 58 - (Input / 2), WHITE); 
-   display.drawLine(12, 48, 12, 58 - (Input / 2), WHITE); 
-   display.drawLine(13, 48, 13, 58 - (Input / 2), WHITE);
-   
-//draw setPoint line
-   display.drawLine(18, 58 - (setPoint / 2), 23, 58 - (setPoint / 2), WHITE); 
- 
-// PID Werte ueber heatbar
-    display.setCursor(40, 50);  
-
-    display.print(bPID.GetKp(), 0); // P 
-    display.print("|");
-    if (bPID.GetKi() != 0){      
-    display.print(bPID.GetKp() / bPID.GetKi(), 0);;} // I 
-    else
-    { 
-      display.print("0");
-    }
-    display.print("|");
-    display.println(bPID.GetKd() / bPID.GetKp(), 0); // D
-    display.fillRect(98,50,24,7,BLACK);
-    display.setCursor(98,50);
-    display.setTextColor(BLACK,BLACK);
-    display.setCursor(98,50);
-    display.setTextColor(WHITE,BLACK);
-    display.print(Output / 10, 0);
-    display.print("%");
-// quickfill test
-//    display.quickFill(BLACK);
-// Draw heat bar
-   display.drawLine(15, 58, 117, 58, WHITE);
-   display.drawLine(15, 58, 15, 61, WHITE); 
-   display.drawLine(117, 58, 117, 61, WHITE);
-
-   display.drawLine(16, 59, (Output / 10) + 16, 59, WHITE);
-   display.drawLine(16, 60, (Output / 10) + 16, 60, WHITE);
-   display.drawLine(15, 61, 117, 61, WHITE);
-// Brew
-    display.setCursor(32, 31); 
-    display.print("Brew:  ");
-    display.setTextSize(1);
-    display.print(bezugsZeit / 1000);
-    display.print("/");
-    if (ONLYPID == 1){
-    display.println(brewtimersoftware, 0);             // deaktivieren wenn Preinfusion ( // voransetzen )
-    }
-    else 
-    {
-    display.println(totalbrewtime / 1000);            // aktivieren wenn Preinfusion
-    }
-//draw box
-   display.drawRoundRect(0, 0, 128, 64, 1, WHITE);    
-   //display.display();
-// Show weight
-  display.setCursor(0,76);
-  display.setTextColor(WHITE,BLACK);
-  display.fillRect(0,76,120,7,BLACK);
-  display.print(getWeight() - tareweight);
-  display.setCursor(0,100);
-  display.print(getWeight2());
-  }
-}
-
 /********************************************************
   send data to Blynk server
 *****************************************************/
@@ -765,7 +618,6 @@ void sendToBlynk() {
     }
   }
 }
-
 /********************************************************
     Brewdetection
 ******************************************************/
@@ -790,7 +642,6 @@ void brewdetection() {
     }
   }
 }
-
 /********************************************************
     Timer 1 - ISR für PID Berechnung und Heizrelais-Ausgabe
 ******************************************************/
@@ -817,11 +668,421 @@ void IRAM_ATTR onTimer(){
   bPID.Compute();
 }
 
+
+/*********************
+  *        HOME TAB   *
+  *********************/
+static void create_tab1(lv_obj_t * parent)
+{
+    
+          /*Create a style for the line meter*/
+    static lv_style_t style_lmeter;
+    lv_style_copy(&style_lmeter, &lv_style_pretty_color);
+    style_lmeter.line.width = 3;
+    style_lmeter.line.color = LV_COLOR_SILVER;
+    style_lmeter.body.main_color = lv_color_hex(0x59ff00);         /*Light blue*/
+    style_lmeter.body.grad_color = lv_color_hex(0xff0000);         /*Dark blue*/
+    style_lmeter.body.padding.left = 16;                           /*Line length*/
+
+            /*Create a style for the line meter*/
+    static lv_style_t style_lmeter2;
+    lv_style_copy(&style_lmeter2, &lv_style_pretty_color);
+    style_lmeter2.line.width = 2;
+    style_lmeter2.line.color = LV_COLOR_SILVER;
+    style_lmeter2.body.main_color = lv_color_hex(0xfab6bf);         /*Light blue*/
+    style_lmeter2.body.grad_color = lv_color_hex(0xff0000);         /*Dark blue*/
+    style_lmeter2.body.padding.left = 16;      
+
+
+            /*Create style for the Arcs*/
+    static lv_style_t style_arc;
+    lv_style_copy(&style_arc, &lv_style_plain);
+    style_arc.line.color = LV_COLOR_BLUE;           /*Arc color*/
+    style_arc.line.width = 4;                       /*Arc width*/
+
+            /* Create Style for Set Label */
+
+    static lv_style_t style_coffee;
+    lv_style_copy(&style_coffee, &lv_style_pretty_color);
+    style_coffee.text.font = &icon_coffee_40;
+    style_coffee.text.color = lv_color_hex(0x000000);
+
+
+    /************************
+     *  Create a line meter *
+     *************************/
+    lmeter = lv_lmeter_create(parent, NULL);
+    lv_lmeter_set_range(lmeter, 0, 100);                   /*Set the range*/
+    lv_lmeter_set_value(lmeter, 20);                       /*Set the current value*/
+    lv_lmeter_set_scale(lmeter, 240, 31);                  /*Set the angle and number of lines*/
+    lv_lmeter_set_style(lmeter, LV_LMETER_STYLE_MAIN, &style_lmeter);           /*Apply the new style*/
+    lv_obj_set_size(lmeter, 200, 200);
+    lv_obj_align(lmeter, parent, LV_ALIGN_CENTER, 0, 15);
+
+    
+    
+    //Event for lmeter value
+    lv_obj_set_event_cb(lmeter, event_handler_refresh_input2);   /*Assign an event callback*/
+
+
+ /******************************************
+  *       Label for Set temp
+  ******************************************/
+     
+  #define MY_COFFEE_SYMBOL "\xEF\x83\xB4"
+   labelSet = lv_label_create(lmeter, NULL);
+   lv_obj_align(labelSet, label, LV_ALIGN_CENTER,-3,-5);
+   lv_label_set_align(labelSet, LV_LABEL_ALIGN_CENTER);       /*Center aligned lines*/
+   lv_label_set_style(labelSet, LV_LABEL_STYLE_MAIN, &style_coffee);
+   lv_label_set_text(labelSet, MY_COFFEE_SYMBOL);
+
+   /***************************
+    * Label for temp          *
+    **************************/
+    //label lmeter
+    label = lv_label_create(lmeter, NULL);
+    lv_obj_align(label, lmeter, LV_ALIGN_CENTER,0,0);
+    lv_label_set_align(label, LV_LABEL_ALIGN_CENTER);       /*Center aligned lines*/
+    lv_obj_set_event_cb(label, event_handler_refresh_input);   /*Assign an event callback*/
+    
+    int num = lv_lmeter_get_value(lmeter);
+    char snum[7];
+    itoa(num, snum, 10);
+    
+    strcat(snum, "\xB0");
+    strcat(snum, "°");
+
+    lv_label_set_text(label, snum);       /* convert Temp int  to string [buf] */
+    
+    
+
+
+/*******************************************
+ * Create line meter for Heating percentage
+ ********************************************/
+    lv_page_set_sb_mode(parent,LV_SB_MODE_OFF);  
+    lmeter1 = lv_lmeter_create(lmeter, NULL);
+    lv_lmeter_set_range(lmeter1, 0, 100);                   /*Set the range*/
+    lv_lmeter_set_value(lmeter1, (Output / 10));                       /*Set the current value*/
+    lv_lmeter_set_scale(lmeter1, 240, 25);                  /*Set the angle and number of lines*/
+    lv_lmeter_set_style(lmeter1, LV_LMETER_STYLE_MAIN, &style_lmeter2);           /*Apply the new style*/
+    lv_obj_set_size(lmeter1, 150, 150);
+    lv_obj_align(lmeter1, lmeter, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_event_cb(lmeter1, event_handler_refresh_output);   /*Assign an event callback*/
+
+/**************************************
+ *         Create water arc elemet
+ ***************************************/
+    
+  lv_obj_t * arc = lv_arc_create(lmeter1, NULL);
+  lv_arc_set_style(arc, LV_ARC_STYLE_MAIN, &style_arc);          /*Use the new style*/
+  lv_arc_set_angles(arc, 90, 60);
+  lv_obj_set_size(arc, 75, 75);
+  lv_obj_align(arc, NULL, LV_ALIGN_CENTER, 0, 0);
+
+}
+
+static void create_tab2(lv_obj_t * parent)
+{
+    lv_coord_t w = 265;
+
+    chart = lv_chart_create(parent, NULL);
+    lv_page_set_sb_mode(parent,LV_SB_MODE_OFF);
+    lv_chart_set_type(chart, LV_CHART_TYPE_POINT | LV_CHART_TYPE_LINE);
+    lv_obj_set_size(chart, w, 180);
+    lv_chart_set_range(chart, 0, 100);
+    lv_obj_align(chart, parent, LV_ALIGN_IN_RIGHT_MID,-10,0);
+    //lv_obj_set_pos(chart, LV_DPI / 10, LV_DPI / 10);
+    lv_chart_set_series_darking(chart, 50);
+    lv_chart_set_point_count(chart, 20);
+    
+    lv_chart_set_y_tick_texts(chart, "100\n75\n50\n25\n0", 2, LV_CHART_AXIS_DRAW_LAST_TICK);
+    lv_chart_set_y_tick_length(chart, 10, 5);
+    lv_chart_set_div_line_count(chart, 3, 3);
+    lv_chart_set_margin(chart, 50);
+    lv_chart_set_series_opa(chart, 80);
+    s1 = lv_chart_add_series(chart, LV_COLOR_RED);
+}
+/***********************************
+ *          Settings Tab          *
+ **********************************/
+static void create_tab3(lv_obj_t * parent)
+{
+
+/*********************************
+ *        Style Label PID        *
+ *********************************/
+    static lv_style_t style_pid;
+    lv_style_copy(&style_pid, &lv_style_pretty_color);
+    style_pid.text.color = lv_color_hex(0xc4bbbb);
+    
+  labelP = lv_label_create(parent, NULL);
+  lv_obj_align(labelP, parent, LV_ALIGN_IN_TOP_MID, 0, 0);
+  lv_label_set_style(labelP, LV_LABEL_STYLE_MAIN, &style_pid);
+  
+  lv_label_set_text(labelP, p_id);
+
+/***********************************
+ *        Button minus             *
+ ***********************************/
+
+      lv_obj_t * label;
+
+    lv_obj_t * btn1 = lv_btn_create(parent, NULL);
+    lv_obj_set_event_cb(btn1, event_handler_minus);
+    lv_obj_align(btn1, labelP, LV_ALIGN_OUT_LEFT_MID,0,0);
+    lv_btn_set_fit(btn1,LV_FIT_TIGHT);
+    label = lv_label_create(btn1, NULL);
+  
+    lv_label_set_text(label, LV_SYMBOL_MINUS);
+
+ /***********************************
+ *        Button Plus             *
+ ***********************************/
+
+    lv_obj_t * labelPlus;
+
+    lv_obj_t * btn2 = lv_btn_create(parent, NULL);
+    lv_obj_set_event_cb(btn2, event_handler_plus);
+    lv_obj_align(btn2, labelP, LV_ALIGN_OUT_RIGHT_MID,25,0);
+    lv_btn_set_fit(btn2,LV_FIT_TIGHT);
+    labelPlus = lv_label_create(btn2, NULL);
+    lv_label_set_text(labelPlus, LV_SYMBOL_UP);
+
+/************************************
+ *           Button ende
+ ***********************************/
+ 
+/************************************
+ *          Label I                 *
+ ***********************************/
+
+  labelI = lv_label_create(parent, NULL);
+  lv_obj_align(labelI, parent, LV_ALIGN_CENTER, 0, -50);
+  lv_label_set_style(labelI, LV_LABEL_STYLE_MAIN, &style_pid);
+  lv_label_set_text(labelI, pi_d);
+
+/***********************************
+ *        Button minus             *
+ ***********************************/
+
+    lv_obj_t * labelIM;
+    lv_obj_t * btnIM = lv_btn_create(parent, NULL);
+    lv_obj_set_event_cb(btnIM, event_handler_IM);
+    lv_obj_align(btnIM, labelI, LV_ALIGN_OUT_LEFT_MID,0,0);
+    lv_btn_set_fit(btnIM,LV_FIT_TIGHT);
+    labelIM = lv_label_create(btnIM, NULL);
+    lv_label_set_text(labelIM,LV_SYMBOL_DOWN);
+
+ /***********************************
+ *        Button Plus             *
+ ***********************************/
+
+    lv_obj_t * labelIP;
+
+    lv_obj_t * btnIP = lv_btn_create(parent, NULL);
+    lv_obj_set_event_cb(btnIP, event_handler_IM);
+    lv_obj_align(btnIP, labelI, LV_ALIGN_OUT_RIGHT_MID,25,0);
+    lv_btn_set_fit(btnIP,LV_FIT_TIGHT);
+    labelIP = lv_label_create(btnIP, NULL);
+    lv_label_set_text(labelIP, LV_SYMBOL_UP);
+
+/************************************
+ *           Button ende
+ ***********************************/
+/************************************
+ *          Label D                *
+ ***********************************/
+
+  labelD = lv_label_create(parent, NULL);
+  lv_obj_align(labelD, parent, LV_ALIGN_IN_BOTTOM_MID, 0, -100);
+  lv_label_set_style(labelD, LV_LABEL_STYLE_MAIN, &style_pid);
+  lv_label_set_text(labelD, pid_);
+
+/***********************************
+ *        Button minus             *
+ ***********************************/
+
+    lv_obj_t * labelDM;
+
+    lv_obj_t * btnDM = lv_btn_create(parent, NULL);
+    lv_obj_set_event_cb(btnIM, event_handler_IM);
+    lv_obj_align(btnDM, labelD, LV_ALIGN_OUT_LEFT_MID,0,0);
+    lv_btn_set_fit(btnDM,LV_FIT_TIGHT);
+    labelDM = lv_label_create(btnDM, NULL);
+    lv_label_set_text(labelDM, LV_SYMBOL_DOWN);
+
+ /***********************************
+ *        Button Plus             *
+ ***********************************/
+
+    lv_obj_t * labelDP;
+
+    lv_obj_t * btnDP = lv_btn_create(parent, NULL);
+    lv_obj_set_event_cb(btnDP, event_handler_IM);
+    lv_obj_align(btnDP, labelD, LV_ALIGN_OUT_RIGHT_MID,25,0);
+    lv_btn_set_fit(btnDP,LV_FIT_TIGHT);
+    labelDP = lv_label_create(btnDP, NULL);
+    lv_label_set_text(labelDP, LV_SYMBOL_UP);
+
+
+}
+/***********************
+ * Event Handler
+ ***********************/
+
+static void event_handler_minus(lv_obj_t * obj, lv_event_t event)
+{
+    if(event == LV_EVENT_CLICKED) {
+      static char p_id[4];
+      P = bPID.GetKp();
+      P--;
+      sprintf(p_id, "%d", P);
+      lv_label_set_text(labelP, p_id);
+    }
+    else if(event == LV_EVENT_VALUE_CHANGED) {
+       
+    }
+}
+
+static void event_handler_plus(lv_obj_t * obj, lv_event_t event)
+{
+    if(event == LV_EVENT_CLICKED) {
+
+       P++;
+      
+      sprintf(p_id, "%d", P);
+       lv_label_set_text(labelP, p_id);
+    }
+    else if(event == LV_EVENT_VALUE_CHANGED) {
+       
+    }
+}
+
+static void event_handler_IM(lv_obj_t * obj, lv_event_t event)
+{
+    if(event == LV_EVENT_CLICKED) {
+      static char pi_d[4];
+       I--;
+      sprintf(pi_d, "%d", I);
+      lv_label_set_text(labelI, pi_d);
+    }
+    else if(event == LV_EVENT_VALUE_CHANGED) {
+       
+    }
+}
+static void event_handler_IP(lv_obj_t * obj, lv_event_t event)
+{
+    if(event == LV_EVENT_CLICKED) {
+
+       I++;
+      
+      sprintf(pi_d, "%d", I);
+      lv_label_set_text(labelI, pi_d);
+    }
+    else if(event == LV_EVENT_VALUE_CHANGED) {
+       
+    }
+}
+
+static void event_handler_refresh_input(lv_obj_t * obj, lv_event_t event)
+{
+  if(event == LV_EVENT_REFRESH) {
+     lv_lmeter_set_value(lmeter, Input);                       /*Set the current value*/
+     lv_chart_set_next(chart, s1, Input);
+
+  }
+}
+static void event_handler_refresh_input2(lv_obj_t * obj, lv_event_t event)
+{
+  if(event == LV_EVENT_REFRESH) {
+    int num = lv_lmeter_get_value(lmeter);
+    char snum[4];
+    itoa(num, snum, 10);
+    //strcat(snum, "\xB0");
+    strcat(snum, "°");
+
+
+    
+    
+    lv_label_set_text(label, snum); 
+  }
+}
+static void event_handler_refresh_output(lv_obj_t * obj, lv_event_t event)
+{
+  if(event == LV_EVENT_REFRESH) {
+    //line meter animation
+
+    a.var = lmeter1;
+    a.exec_cb = (lv_anim_exec_xcb_t)lv_lmeter_set_value;    /*Set the animator function and variable to animate*/ 
+    a.start = lv_lmeter_get_value(lmeter1);
+    a.end = Output / 10;
+
+    a.path_cb = lv_anim_path_linear;
+    a.ready_cb = NULL;
+    a.act_time = 0;
+    a.time = 200;
+    a.playback = 0;
+    a.playback_pause = 0;
+    a.repeat = 0;
+    a.repeat_pause = 0;
+    lv_anim_create(&a);
+    //lv_lmeter_set_value(lmeter1, (Output/10)); 
+  }
+}
+/**********************************
+ * Event Handler Ende
+ * ************************/
 void setup() {
-  initScale();
-  initScale2();
-  DEBUGSTART(115200);
-  /********************************************************
+
+  Serial.begin(115200); /* prepare for possible serial debug */
+
+  lv_init();
+
+#if USE_LV_LOG != 0
+  lv_log_register_print(my_print); /* register print function for debugging */
+#endif
+
+  tft.begin(); /* TFT init */
+  tft.setRotation(1); /* Landscape orientation */
+
+  lv_disp_buf_init(&disp_buf, buf, NULL, LV_HOR_RES_MAX * 10);
+
+  /*Initialize the display*/
+  lv_disp_drv_t disp_drv;
+  lv_disp_drv_init(&disp_drv);
+  disp_drv.hor_res = 320;
+  disp_drv.ver_res = 240;
+  disp_drv.flush_cb = my_disp_flush;
+  disp_drv.buffer = &disp_buf;
+  lv_disp_drv_register(&disp_drv);
+
+
+
+// calibration touch pad
+
+uint16_t calData[5] = { 345, 3290, 506, 2987, 1 };
+tft.setTouch(calData);
+lv_indev_drv_t indev_drv;
+lv_indev_drv_init(&indev_drv);
+indev_drv.type = LV_INDEV_TYPE_POINTER;
+indev_drv.read_cb = my_input_read;
+lv_indev_drv_register(&indev_drv);
+  
+
+  /*Initialize the graphics library's tick*/
+  tick.attach_ms(LVGL_TICK_PERIOD, lv_tick_handler);
+ 
+  /* Create simple label */
+  lv_theme_t *th = lv_theme_zen_init(200, NULL);
+  lv_theme_set_current(th);
+  
+  lv_test_theme_1(th);
+
+  // settings
+
+
+ /********************************************************
     Define trigger type
   ******************************************************/
   if (triggerType)
@@ -843,45 +1104,20 @@ void setup() {
   digitalWrite(pinRelayPumpe, relayOFF);
   digitalWrite(pinRelayHeater, LOW);
 
-
-  if (Display == 1) {
-    /********************************************************
-      DISPLAY Intern
-    ******************************************************/
-    u8x8.begin();
-    u8x8.setPowerSave(0);
-  }
-  if (Display == 2) {
-    /********************************************************
-      DISPLAY 128x64
-    ******************************************************/
-     #include "display.h"
-//     initScale();
-
-     display.begin();
-    //display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3C (for the 128x64)  for AZ Deliv. Display
-    //display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
-    //display.clearDisplay();
-    //display.fillScreen(0);
-
-  }
-  displaymessage(sysVersion, "");
-  delay(2000);
-
-  /********************************************************
+/********************************************************
      BLYNK & Fallback offline
   ******************************************************/
-  if (Offlinemodus == 0) {
+if (Offlinemodus == 0) {
 
     if (fallback == 0) {
 
-      displaymessage("Connect to Blynk", "no Fallback");
+//      displaymessage("Connect to Blynk", "no Fallback");
       Blynk.begin(auth, ssid, pass, blynkaddress, 8080);
     }
 
     if (fallback == 1) {
       unsigned long started = millis();
-      displaymessage("1: Connect Wifi to:", ssid);
+//      displaymessage("1: Connect Wifi to:", ssid);
       // wait 10 seconds for connection:
       /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
         would try to act as both a client and an access-point and could cause
@@ -901,7 +1137,7 @@ void setup() {
         DEBUG_println("WiFi connected");
         DEBUG_println("IP address: ");
         DEBUG_println(WiFi.localIP());
-        displaymessage("2: Wifi connected, ", "try Blynk   ");
+  //      displaymessage("2: Wifi connected, ", "try Blynk   ");
         DEBUG_println("Wifi works, now try Blynk connection");
         delay(2000);
         Blynk.config(auth, blynkaddress, 8080) ;
@@ -909,7 +1145,7 @@ void setup() {
 
         // Blnky works:
         if (Blynk.connected() == true) {
-          displaymessage("3: Blynk connected", "sync all variables...");
+   //       displaymessage("3: Blynk connected", "sync all variables...");
           DEBUG_println("Blynk is online, new values to eeprom");
          // Blynk.run() ; 
           Blynk.syncVirtual(V4);
@@ -948,11 +1184,11 @@ void setup() {
           EEPROM.put(130, brewboarder);
           // eeprom schließen
           EEPROM.commit();
-          display.fillScreen(0);
+//          display.fillScreen(0);
         }
       }
       if (WiFi.status() != WL_CONNECTED || Blynk.connected() != true) {
-        displaymessage("Begin Fallback,", "No Blynk/Wifi");
+  //      displaymessage("Begin Fallback,", "No Blynk/Wifi");
         delay(2000);
         DEBUG_println("Start offline mode with eeprom values, no wifi or blynk :(");
         Offlinemodus = 1 ;
@@ -981,7 +1217,7 @@ void setup() {
         }
         else
         {
-          displaymessage("No eeprom,", "Value");
+   //       displaymessage("No eeprom,", "Value");
           DEBUG_println("No working eeprom value, I am sorry, but use default offline value  :)");
           delay(2000);
         }
@@ -1060,10 +1296,8 @@ timerAlarmEnable(timer);
 
 
 }
-
 void loop() {
-
-  ArduinoOTA.handle();  // For OTA
+ ArduinoOTA.handle();  // For OTA
   // Disable interrupt it OTA is starting, otherwise it will not work
   ArduinoOTA.onStart([](){
     //timer1_disable();
@@ -1092,7 +1326,7 @@ void loop() {
   unsigned long stopT;
 
   refreshTemp();   //read new temperature values
-  testEmergencyStop();  // test if Temp is to high
+//  testEmergencyStop();  // test if Temp is to high
   brew();   //start brewing if button pressed
 
   //check if PID should run or not. If not, set to manuel and force output to zero
@@ -1152,44 +1386,33 @@ void loop() {
     unsigned long currentMillisDisplay = millis();
     if (currentMillisDisplay - previousMillisDisplay >= intervalDisplay) {
       previousMillisDisplay += intervalDisplay;
-      printScreen();
+ /*
+  * REFRESH VARIABLES
+  */
+  lv_event_send(lmeter, LV_EVENT_REFRESH, NULL);
+  lv_event_send(label, LV_EVENT_REFRESH, NULL);
+  lv_event_send(lmeter1, LV_EVENT_REFRESH, NULL);
+
     }
 
   } else if (sensorError) {
 
     //Deactivate PID
     if (pidMode == 1) {
-      pidMode = 0;
+      pidMode = 1;
       bPID.SetMode(pidMode);
-      Output = 0 ;
+      Output = 1 ;
     }
 
     digitalWrite(pinRelayHeater, LOW); //Stop heating
 
     //DISPLAY AUSGABE
     if (Display == 2) {
-      display.setTextSize(1);
-      display.setTextColor(WHITE,BLACK);
-      display.fillScreen(0);
-      display.setCursor(0, 0);
-      display.print("Error: Temp = ");
-      display.println(Input);
-      display.print("Check Temp. Sensor!");
-      display.fillScreen(0);
+
       //display.display();
     }
     if (Display == 1) {
-      u8x8.setFont(u8x8_font_chroma48medium8_r);  //Ausgabe vom aktuellen Wert im Display
-      u8x8.setCursor(0, 0);
-      u8x8.print("               ");
-      u8x8.setCursor(0, 1);
-      u8x8.print("               ");
-      u8x8.setCursor(0, 2);
-      u8x8.print("               ");
-      u8x8.setCursor(0, 1);
-      u8x8.print("Error: Temp = ");
-      u8x8.setCursor(0, 2);
-      u8x8.print(Input);
+
     }
   } else if (emergencyStop){
 
@@ -1204,30 +1427,13 @@ void loop() {
 
     //DISPLAY AUSGABE
     if (Display == 2) {
-      display.setTextSize(1);
-      display.setTextColor(WHITE);
-      display.fillScreen(0);
-      display.setCursor(0, 0);
-      display.println("Emergency Stop!");
-      display.println("");
-      display.println("Temp > 120");
-      display.print("Temp: ");
-      display.println(Input);
-      display.print("Resume if Temp < 100");
+
       //display.display();
     }
     if (Display == 1) {
-      u8x8.setFont(u8x8_font_chroma48medium8_r);  //Ausgabe vom aktuellen Wert im Display
-      u8x8.setCursor(0, 0);
-      u8x8.print("               ");
-      u8x8.setCursor(0, 1);
-      u8x8.print("               ");
-      u8x8.setCursor(0, 2);
-      u8x8.print("               ");
-      u8x8.setCursor(0, 1);
-      u8x8.print("Emergency Stop! T>120");
-      u8x8.setCursor(0, 2);
-      u8x8.print(Input);
+
     }
   }
+  lv_task_handler(); /* let the GUI do its work */
+  delay(5);
 }

@@ -44,7 +44,7 @@ const char* blynkaddress  = BLYNKADDRESS;
 //#include <BlynkSimpleEsp8266.h> old esp
 #include <BlynkSimpleEsp32.h>
 /**********************
- *  STATIC PROTOTYPES
+ *   PROTOTYPES
  **********************/
 static void create_tab1(lv_obj_t * parent);
 static void create_tab2(lv_obj_t * parent);
@@ -58,7 +58,7 @@ static lv_disp_buf_t disp_buf;
 static lv_color_t buf[LV_HOR_RES_MAX * 10];
 
 /**********************
- *  STATIC VARIABLES
+ *   VARIABLES
  **********************/
 float soll = 95;
 float ist;

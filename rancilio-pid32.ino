@@ -1,4 +1,4 @@
- #include <lvgl.h>
+#include <lvgl.h>
 #include <Ticker.h>
 #include <TFT_eSPI.h>
 #include <stdio.h>

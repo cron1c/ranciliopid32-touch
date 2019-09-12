@@ -1,7 +1,6 @@
 # Contributing Guideline
 
 **Do you have some free time to spend with programming? You like Coffee and you know about PID or other stuff? See how can you help to improve the graphics library!**
-# Files
 
 There are many ways to join the community. If you have some time to work with us I'm sure you will find something that fits you! You can:
 -   help others in the [Forum](https://forum.ranciliopid.de/)

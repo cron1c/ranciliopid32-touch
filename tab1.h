@@ -99,7 +99,8 @@ static void create_tab1(lv_obj_t * parent)
 /**************************************
  *         Create water arc elemet
  ***************************************/
-    
+  if (SCALE == 1){
+       
   arc = lv_arc_create(lmeter1, NULL);
   lv_arc_set_style(arc, LV_ARC_STYLE_MAIN, &style_arc);          /*Use the new style*/
   lv_arc_set_angles(arc, 90, 60);
@@ -110,6 +111,9 @@ static void create_tab1(lv_obj_t * parent)
  /**************************
   *     Water weight label 
   ***************************/
+ 
+    
+  
     labelW = lv_label_create(arc, NULL);
     lv_obj_align(labelW, arc, LV_ALIGN_IN_BOTTOM_MID,0,0);
     lv_label_set_align(labelW, LV_LABEL_ALIGN_CENTER);       /*Center aligned lines*/
@@ -122,6 +126,7 @@ static void create_tab1(lv_obj_t * parent)
     strcat(wnum, "ml");
 
     lv_label_set_text(labelW, wnum);       /* convert Temp int  to string [buf] */
+}
 
 
 /******************************

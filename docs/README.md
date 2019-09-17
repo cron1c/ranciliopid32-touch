@@ -22,7 +22,7 @@ To do:
   - More Settings (goal is to set all config values load/save via eeprom)
   - Fix + - Button Events for PID
   - init values from blynk
-  - ~~Table/ButtonArray -> Windows for Settings(?)
+  - ~~Table/ButtonArray -> Windows for Settings(?)~~
   
 ___
       More: 

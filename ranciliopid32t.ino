@@ -706,7 +706,9 @@ void setup() {
   Serial.begin(115200); /* prepare for possible serial debug */
 
   lv_init();
-  initScale();
+  if (SCALE == 1){
+     initScale();
+  }
 #if USE_LV_LOG != 0
   lv_log_register_print(my_print); /* register print function for debugging */
 #endif

@@ -1,6 +1,6 @@
 # Contributing Guideline
 
-**Do you have some free time to spend with programming? You like Coffee and you know about PID or other stuff? See how can you help to improve the graphics library!**
+**Do you have some free time to spend with programming? You like Coffee and you know about PID or other stuff? See how can you help to improve the PID Controller!**
 
 There are many ways to join the community. If you have some time to work with us I'm sure you will find something that fits you! You can:
 -   help others in the [Forum](https://forum.ranciliopid.de/)
@@ -26,7 +26,7 @@ But there are some simple rules:
 
 ## How can I send fixes and improvements?
 
-erging new code happens via Pull Requests. If you are still not familiar with the Pull Requests (PR for short) here is a quick guide:
+Merging new code happens via Pull Requests. If you are still not familiar with the Pull Requests (PR for short) here is a quick guide:
 
 1.  **Fork** the [rancilio pid repository](https://github.com/cron1c/ranciliopid32-touch). To do this click the "Fork" button in the top right corner. It will "copy" the `ranciliopid` repository to your GitHub account (`https://github.com/your_name?tab=repositories`)
 2.  **Clone** the forked repository and add your changes

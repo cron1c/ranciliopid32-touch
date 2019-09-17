@@ -11,7 +11,7 @@ To do:
   - ~~Implement getScale from scale.h and show in Arc (map weight to arc angle)~~
   - fix style ("white flash bug")
           
-      Graph Tab
+   **Graph Tab**
   - Plot "Output" to 2nd graph line (this should be optional, checkbox in Settings tab)
   - Plot "Soll °C" as 3rd graph line
          

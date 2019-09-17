@@ -3,7 +3,7 @@
 
 To do: 
       
-  **Home Tab:**
+  **Home Tab**
   ____
   - Brew button(for PIDONLY=0)
   - ~~Show Brewtimer~~ (not comitted yet) when brew is detected (open Window and show timer)
@@ -15,7 +15,7 @@ To do:
   - Plot "Output" to 2nd graph line (this should be optional, checkbox in Settings tab)
   - Plot "Soll °C" as 3rd graph line
          
-   **Settings tab:**
+   **Settings tab**
    ____
        
   - Save (event)

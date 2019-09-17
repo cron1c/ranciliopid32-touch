@@ -15,7 +15,9 @@
 
 int eepromAdress = 0;
 #include <HX711_ADC.h>
+if(SCALE==1){
 HX711_ADC LoadCell(SCALE1,17);
+}
 //HX711_ADC LoadCell2(SCALE2,4);
 long tim;
 long tim2;

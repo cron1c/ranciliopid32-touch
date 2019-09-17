@@ -19,6 +19,7 @@
 #define OTA true             // true=activate update via OTA
 #define PONE 1             // 1 = P_ON_E (normal), 0 = P_ON_M (spezieller PID Modus, ACHTUNG andere Formel zur Berechnung)
 #define TSICPIN 2
+#define SCALE 0 // 0 = No Scale, 1 = 1 Scale
 //#define SCALE1 16
 //#define SCALE2 17
 // Wifi

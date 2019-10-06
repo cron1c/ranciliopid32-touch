@@ -11,6 +11,7 @@
 #include <WiFiUdp.h>
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
+#include status.
 const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
 #define FIRMWARE_VERSION 1.9.5
 LV_FONT_DECLARE(icon_coffee_40);

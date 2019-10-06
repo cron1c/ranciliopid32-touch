@@ -26,7 +26,7 @@ To do:
   
     ____
       More:
-          --~~Create Font including 0-9 a-z A-Z ° + Glyphs(Fontawesome)~~
+          -~~Create Font including 0-9 a-z A-Z ° + Glyphs(Fontawesome)~~
 	  - implement wifi.reconnect
 	  - show wifi.status
 	  - blynk reconnect

@@ -1,4 +1,4 @@
-#include "lvgl.h"
+#include <lvgl.h>
 #define MY_WATER_SYMBOL "\xEF\x81\x83"
 
 void statusbar(void)

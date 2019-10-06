@@ -1,10 +1,13 @@
 static void event_handler_btn_matrix(lv_obj_t * obj, lv_event_t event)
 {
     if(event == LV_EVENT_VALUE_CHANGED) {
-        //const char * txt = lv_btnm_get_active_btn_text(obj);
+    	if(lv_btnm_get_active_btn_text(btnm1) == MY_CAL_SYMBOL){
+    	    		tpcal_create();
+    	    	}
+        const char * txt = lv_btnm_get_active_btn_text(obj);
         lv_obj_set_hidden(win,false);
 
-       // printf("%s was pressed\n", txt);
+        printf("%s was pressed\n", txt);
     }
 }
 static void event_handler_hide(lv_obj_t * obj, lv_event_t event)

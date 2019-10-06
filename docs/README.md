@@ -25,12 +25,13 @@ To do:
   - ~~Table/ButtonArray -> Windows for Settings(?)~~
   
     ____
-      More:
-          - ~~Create Font including 0-9 a-z A-Z ° + Glyphs(Fontawesome)~~
-	  - implement wifi.reconnect
-	  - show wifi.status
-	  - blynk reconnect
-	  - to activate the new Font, include it into the fonts folder of lvgl and paste 
+ 
+   **More:**
+  - ~~Create Font including 0-9 a-z A-Z ° + Glyphs(Fontawesome)~~
+  - implement wifi.reconnect
+  - show wifi.status
+  - blynk reconnect
+  - to activate the new Font, include it into the fonts folder of lvgl and paste 
 ```
 #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(default_16)
 /*Always set a default font from the built-in fonts*/

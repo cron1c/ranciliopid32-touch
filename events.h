@@ -1,11 +1,15 @@
 static void event_handler_btn_matrix(lv_obj_t * obj, lv_event_t event)
 {
     if(event == LV_EVENT_VALUE_CHANGED) {
-        const char * txt = lv_btnm_get_active_btn_text(obj);
+        //const char * txt = lv_btnm_get_active_btn_text(obj);
         lv_obj_set_hidden(win,false);
 
-        printf("%s was pressed\n", txt);
+       // printf("%s was pressed\n", txt);
     }
+}
+static void event_handler_hide(lv_obj_t * obj, lv_event_t event)
+{ 
+        lv_obj_set_hidden(win,true);    
 }
 static void event_handler_minus(lv_obj_t * obj, lv_event_t event)
 {
@@ -66,13 +70,23 @@ static void event_handler_refresh_input(lv_obj_t * obj, lv_event_t event)
   if(event == LV_EVENT_REFRESH) {
      lv_lmeter_set_value(lmeter, Input);                       /*Set the current value*/
      lv_chart_set_next(chart, s1, Input);
+     lv_chart_set_next(chart, s2, Output / 10);
+     if (SCALE == 1){
      int w = (getWeight() - tareweight);
      lv_arc_set_angles(arc,0,(w / 5.5));
      char weight[10];
      itoa(w, weight, 10);
      strcat(weight, "ml");
     lv_label_set_text(labelW, weight);
-
+    if(w > 0 && w < 601 && PUSHNOTIFACTIONS == 1 && NOTIFY == 0){
+      Blynk.notify("Warning: Water level low!");
+      NOTIFY = 1;
+    }else{
+      if(w > 600 && PUSHNOTIFACTIONS == 1){
+           NOTIFY = 0;
+      }
+    }
+     }
     double brtime = bezugsZeit / 1000;
     double tbtime = brewtimersoftware;
     char br[9];
@@ -85,7 +99,7 @@ static void event_handler_refresh_input(lv_obj_t * obj, lv_event_t event)
     strcat(br, tb);
  
     lv_label_set_text(labelBT, br);
-   
+     
   }
 }
 static void event_handler_refresh_input2(lv_obj_t * obj, lv_event_t event)

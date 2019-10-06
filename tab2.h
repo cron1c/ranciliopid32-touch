@@ -17,5 +17,9 @@ static void create_tab2(lv_obj_t * parent)
     lv_chart_set_div_line_count(chart, 3, 3);
     lv_chart_set_margin(chart, 50);
     lv_chart_set_series_opa(chart, 80);
-    s1 = lv_chart_add_series(chart, LV_COLOR_RED);
+    
+    s1 = lv_chart_add_series(chart, LV_COLOR_BLUE);
+    s2 = lv_chart_add_series(chart, LV_COLOR_RED);
+
+    
 }

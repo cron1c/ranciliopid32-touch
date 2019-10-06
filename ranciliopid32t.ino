@@ -72,6 +72,9 @@ bool NOTIFY;
 static char p_id[4];
 static char pi_d[4];
 static char pid_[4];
+/********************
+* gui global objects
+*********************/
  lv_obj_t * label;
  lv_obj_t * labelSet;
  lv_obj_t * labelP;
@@ -87,8 +90,10 @@ static char pid_[4];
  lv_chart_series_t * s1;
  lv_chart_series_t * s2;
  lv_obj_t * arc;
-lv_obj_t * btnm1;
-lv_obj_t * win;
+ lv_obj_t * arc2;
+ lv_obj_t * arc3;
+ lv_obj_t * btnm1;
+ lv_obj_t * win;
 
 //Define pins for outputs
 #define pinRelayVentil    99
@@ -135,6 +140,8 @@ void lv_test_theme_1(lv_theme_t * th)
     create_tab1(tab1);
     create_tab2(tab2);
     create_tab3(tab3);
+    statusbar();
+
 }
 
 /**********************

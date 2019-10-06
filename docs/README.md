@@ -12,6 +12,7 @@ To do:
   - fix style ("white flash bug")
           
    **Graph Tab**
+   ____
   - Plot "Output" to 2nd graph line (this should be optional, checkbox in Settings tab)
   - Plot "Soll °C" as 3rd graph line
          
@@ -23,10 +24,9 @@ To do:
   - Fix + - Button Events for PID
   - init values from blynk
   - ~~Table/ButtonArray -> Windows for Settings(?)~~
-  
-    ____
  
    **More:**
+   ____
   - ~~Create Font including 0-9 a-z A-Z ° + Glyphs(Fontawesome)~~
   - implement wifi.reconnect
   - show wifi.status

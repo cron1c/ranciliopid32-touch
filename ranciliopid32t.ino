@@ -11,7 +11,7 @@
 #include <WiFiUdp.h>
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
-#include status.h
+#include "status.h"
 const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
 #define FIRMWARE_VERSION 1.9.5
 #define MY_CHART_SYMBOL "\xEF\x87\xBE"

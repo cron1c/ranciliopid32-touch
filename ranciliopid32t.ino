@@ -11,11 +11,16 @@
 #include <WiFiUdp.h>
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
-#include status.
+#include status.h
 const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
 #define FIRMWARE_VERSION 1.9.5
-LV_FONT_DECLARE(icon_coffee_40);
-
+#define MY_CHART_SYMBOL "\xEF\x87\xBE"
+#define MY_CAL_SYMBOL "\xEF\x81\x9B"
+#define MY_SCALE_SYMBOL "\xEF\x89\x8E"
+#define MY_PID_SYMBOL "\xEF\x87\x9E"
+#define MY_SHOT_SYMBOL "\xEF\x89\x92"
+#define MY_WATER_SYMBOL "\xEF\x81\x83"
+#define MY_STEAM_SYMBOL "\xEF\x8B\x8C"
 /********************************************************
   definitions below must be changed in the userConfig.h file
 ******************************************************/

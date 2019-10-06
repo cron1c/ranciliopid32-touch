@@ -1,9 +1,8 @@
-
 #include <lvgl.h>
 #include <Ticker.h>
 #include <TFT_eSPI.h>
 #include <stdio.h>
-#define LVGL_TICK_PERIOD 20
+#define LVGL_TICK_PERIOD 10
 #include "userConfig.h" // needs to be configured by the user
 //#include "icon_coffee_40.c"
 #include "helper.h"
@@ -62,17 +61,17 @@ static lv_disp_buf_t disp_buf;
 static lv_color_t buf[LV_HOR_RES_MAX * 10];
 
 /**********************
- *  STATIC VARIABLES
+ *  GLOBAL VARIABLES
  **********************/
 float soll = 95;
 float ist;
 int P = 699;
 int I = 399;
 int D = 100;
+bool NOTIFY;
 static char p_id[4];
 static char pi_d[4];
 static char pid_[4];
-
  lv_obj_t * label;
  lv_obj_t * labelSet;
  lv_obj_t * labelP;
@@ -86,6 +85,7 @@ static char pid_[4];
  lv_anim_t a;
  lv_obj_t * chart;
  lv_chart_series_t * s1;
+ lv_chart_series_t * s2;
  lv_obj_t * arc;
 lv_obj_t * btnm1;
 lv_obj_t * win;
@@ -677,7 +677,9 @@ void IRAM_ATTR onTimer(){
   }
 
   //run PID calculation
+  lv_tick_inc(10);
   bPID.Compute();
+  
 }
 
 

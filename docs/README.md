@@ -20,7 +20,7 @@ To do:
    ____
        
   - Save (event)
-  - More Settings (goal is to set all config values load/save via eeprom)
+  - More Settings (goal is to set all config values load/save via ~~eeprom~~ spiffs /config.json)
   - Fix + - Button Events for PID
   - init values from blynk
   - ~~Table/ButtonArray -> Windows for Settings(?)~~

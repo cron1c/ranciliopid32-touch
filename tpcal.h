@@ -14,11 +14,10 @@ extern "C" {
  *      INCLUDES
  *********************/
 #ifdef LV_CONF_INCLUDE_SIMPLE
-#include "lvgl.h"
+#include <lvgl.h>
 #include "lv_ex_conf.h"
 #else
-#include "../../../lvgl/lvgl.h"
-#include "../../../lv_ex_conf.h"
+#include <lvgl.h>
 #endif
 
 
@@ -39,7 +38,7 @@ extern "C" {
 /**
  * Create a touch pad calibration screen
  */
-void tpcal_create(void);
+//void tpcal_create(void);
 
 /**********************
  *      MACROS

@@ -15,9 +15,7 @@
 
 int eepromAdress = 0;
 #include <HX711_ADC.h>
-if(SCALE==1){
 HX711_ADC LoadCell(SCALE1,17);
-}
 //HX711_ADC LoadCell2(SCALE2,4);
 long tim;
 long tim2;
@@ -59,9 +57,9 @@ void initScale() {
 
 int getWeight() {
   float weight = 0;
-     LoadCell.update();
   //get smoothed value from data set + current calibration factor
   if (millis() > tim + 250) {
+    LoadCell.update();
     float i = LoadCell.getData();
     Serial.print("Load_cell output val: ");
     Serial.println(i);

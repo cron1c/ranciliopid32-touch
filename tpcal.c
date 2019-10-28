@@ -19,13 +19,14 @@
  *      - x_act: the currently measured X coordinate
  *      - x1_saved, x2_saved: The raw X coordinates saved as calibration data
  */
-
+#define LV_USE_TPCAL 1
 /*********************
  *      INCLUDES
  *********************/
-#include "tpcal.h"
+#include <lvgl.h>
 #if LV_USE_TPCAL
 #include <stdio.h>
+
 
 /*********************
  *      DEFINES

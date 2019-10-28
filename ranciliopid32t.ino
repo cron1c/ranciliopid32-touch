@@ -2,16 +2,16 @@
 #include <Ticker.h>
 #include <TFT_eSPI.h>
 #include <stdio.h>
-#define LVGL_TICK_PERIOD 10
+#define LVGL_TICK_PERIOD 20
 #include "userConfig.h" // needs to be configured by the user
 //#include "icon_coffee_40.c"
 #include "helper.h"
-#include "scale.h" 
+#include "scale.h"
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
-#include "status.h"
+#include <ArduinoJson.h>
 const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
 #define FIRMWARE_VERSION 1.9.5
 #define MY_CHART_SYMBOL "\xEF\x87\xBE"
@@ -21,11 +21,14 @@ const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
 #define MY_SHOT_SYMBOL "\xEF\x89\x92"
 #define MY_WATER_SYMBOL "\xEF\x81\x83"
 #define MY_STEAM_SYMBOL "\xEF\x8B\x8C"
+#define MY_SYMBOL_STOP "\xEF\x81\x9E"
+#define MY_SYMBOL_DOWNLOAD "\xEF\x83\xAD"
+
 /********************************************************
   definitions below must be changed in the userConfig.h file
 ******************************************************/
 int Offlinemodus = OFFLINEMODUS;
-const int Display = DISPLAY;
+//const int Display = DISPLAY;
 const int OnlyPID = ONLYPID;
 const int TempSensor = TEMPSENSOR;
 const int Brewdetection = BREWDETECTION;
@@ -34,6 +37,9 @@ const int triggerType = TRIGGERTYPE;
 const boolean ota = OTA;
 // create timer
 hw_timer_t * timer = NULL;
+volatile int interruptCounter;
+int totalInterruptCounter;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 // Wifi
 const char* auth = AUTH;
 const char* ssid = D_SSID;
@@ -53,7 +59,7 @@ const char* blynkaddress  = BLYNKADDRESS;
 //#include <BlynkSimpleEsp8266.h> old esp
 #include <BlynkSimpleEsp32.h>
 /**********************
- *  STATIC PROTOTYPES
+    STATIC PROTOTYPES
  **********************/
 static void create_tab1(lv_obj_t * parent);
 static void create_tab2(lv_obj_t * parent);
@@ -65,9 +71,10 @@ Ticker tick; /* timer for interrupt handler */
 TFT_eSPI tft = TFT_eSPI(); /* TFT instance */
 static lv_disp_buf_t disp_buf;
 static lv_color_t buf[LV_HOR_RES_MAX * 10];
+static lv_color_t buf2[LV_HOR_RES_MAX * 10];
 
 /**********************
- *  GLOBAL VARIABLES
+    GLOBAL VARIABLES
  **********************/
 float soll = 95;
 float ist;
@@ -79,28 +86,40 @@ static char p_id[4];
 static char pi_d[4];
 static char pid_[4];
 /********************
-* gui global objects
+  gui global objects
 *********************/
- lv_obj_t * label;
- lv_obj_t * labelSet;
- lv_obj_t * labelP;
- lv_obj_t * labelI;
- lv_obj_t * labelD;
- lv_obj_t * lmeter;
- lv_obj_t * lmeter1;
- lv_obj_t * labelW;
- lv_obj_t * labelBT;
- lv_obj_t * tab3;
- lv_anim_t a;
- lv_obj_t * chart;
- lv_chart_series_t * s1;
- lv_chart_series_t * s2;
- lv_obj_t * arc;
- lv_obj_t * arc2;
- lv_obj_t * arc3;
- lv_obj_t * btnm1;
- lv_obj_t * win;
-
+lv_obj_t * tv;
+lv_obj_t * tab1;
+lv_obj_t * tab2;
+lv_obj_t * tab3;
+lv_obj_t * btnPlus;
+lv_obj_t * btnMinus;
+lv_obj_t * label;
+lv_obj_t * labelStartInfo;
+lv_obj_t * labelPlus;
+lv_obj_t * labelMinus;
+lv_obj_t * labelSetPoint;
+lv_obj_t * labelSet;
+lv_obj_t * labelP;
+lv_obj_t * labelI;
+lv_obj_t * labelD;
+lv_obj_t * lmeter;
+lv_obj_t * lmeter1;
+lv_obj_t * labelW;
+lv_obj_t * labelBT;
+lv_anim_t a;
+lv_obj_t * chart;
+lv_chart_series_t * s1;
+lv_chart_series_t * s2;
+lv_chart_series_t * s3;
+lv_obj_t * arc;
+lv_obj_t * arc2;
+lv_obj_t * arc3;
+lv_obj_t * arc4;
+lv_obj_t * btnm1;
+lv_obj_t * win;
+lv_obj_t * list1;
+lv_obj_t * txt;
 //Define pins for outputs
 #define pinRelayVentil    99
 #define pinRelayPumpe    99
@@ -108,11 +127,11 @@ static char pid_[4];
 
 
 /**********************
- *      MACROS
+        MACROS
  **********************/
 // Debug mode is active if #define DEBUGMODE is set
-#define DEBUGMODE
-
+//#define DEBUGMODE
+#define USE_LV_LOG 0
 #ifndef DEBUGMODE
 #define DEBUG_println(a)
 #define DEBUG_print(a)
@@ -123,43 +142,83 @@ static char pid_[4];
 #define DEBUGSTART(a) Serial.begin(a);
 #endif
 /**********************
- *   GLOBAL FUNCTIONS
+     GLOBAL FUNCTIONS
  **********************/
 
 /**
- * Create a test screen with a lot objects and apply the given theme on them
- * @param th pointer to a theme
- */
+   Create a test screen with a lot objects and apply the given theme on them
+   @param th pointer to a theme
+*/
 void lv_test_theme_1(lv_theme_t * th)
 {
-    lv_theme_set_current(th);
-    th = lv_theme_get_current();    /*If `LV_THEME_LIVE_UPDATE  1` `th` is not used directly so get the real theme after set*/
-    lv_obj_t * scr = lv_cont_create(NULL, NULL);
-    lv_disp_load_scr(scr);
+  lv_theme_set_current(th);
+  th = lv_theme_get_current();    /*If `LV_THEME_LIVE_UPDATE  1` `th` is not used directly so get the real theme after set*/
+  lv_obj_t * scr = lv_cont_create(NULL, NULL);
+  lv_disp_load_scr(scr);
 
-    lv_obj_t * tv = lv_tabview_create(scr, NULL);
-    lv_obj_set_size(tv, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL));
-    lv_obj_t * tab1 = lv_tabview_add_tab(tv, LV_SYMBOL_HOME " PID");
-    lv_obj_t * tab2 = lv_tabview_add_tab(tv, LV_SYMBOL_REFRESH " Graph");
-    lv_obj_t * tab3 = lv_tabview_add_tab(tv, LV_SYMBOL_SETTINGS " Settings");
+  tv = lv_tabview_create(scr, NULL);
+  lv_obj_set_size(tv, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL));
+  lv_tabview_set_btns_pos(tv, LV_TABVIEW_BTNS_POS_BOTTOM);
+  tab1 = lv_tabview_add_tab(tv, LV_SYMBOL_HOME);
+  tab2 = lv_tabview_add_tab(tv, LV_SYMBOL_SHUFFLE);
+  tab3 = lv_tabview_add_tab(tv, LV_SYMBOL_SETTINGS);
 
-    create_tab1(tab1);
-    create_tab2(tab2);
-    create_tab3(tab3);
-    statusbar();
+  create_tab1(tab1);
+  create_tab2(tab2);
+  create_tab3(tab3);
+  // statusbar();
 
 }
 
+
+
+
+
 /**********************
- *   STATIC FUNCTIONS
+     STATIC FUNCTIONS
  **********************/
 
 
 
- 
+#if USE_LV_LOG != 0
+/* Serial debugging */
+void my_print(lv_log_level_t level, const char * file, uint32_t line, const char * dsc)
+{
 
+  Serial.printf("%s@%d->%s\r\n", file, line, dsc);
+}
+#endif
+static void event_handler_settings(lv_obj_t * obj, lv_event_t event)
+{
 
- 
+}
+void list_settings(void)
+{
+
+  /*Create a list*/
+  list1 = lv_list_create(win, NULL);
+  lv_obj_set_size(list1, 160, 200);
+  lv_obj_align(list1, NULL, LV_ALIGN_CENTER, 0, 0);
+
+  /*Add buttons to the list*/
+
+  lv_obj_t * list_btn;
+
+  list_btn = lv_list_add_btn(list1, LV_SYMBOL_FILE, "New");
+  lv_obj_set_event_cb(list_btn, event_handler_settings);
+
+  list_btn = lv_list_add_btn(list1, LV_SYMBOL_DIRECTORY, "Open");
+  lv_obj_set_event_cb(list_btn, event_handler_settings);
+
+  list_btn = lv_list_add_btn(list1, LV_SYMBOL_CLOSE, "Delete");
+  lv_obj_set_event_cb(list_btn, event_handler_settings);
+
+  list_btn = lv_list_add_btn(list1, LV_SYMBOL_EDIT, "Edit");
+  lv_obj_set_event_cb(list_btn, event_handler_settings);
+
+  list_btn = lv_list_add_btn(list1, LV_SYMBOL_SAVE, "Save");
+  lv_obj_set_event_cb(list_btn, event_handler_settings);
+}
 /* Display flushing */
 void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
 {
@@ -186,30 +245,30 @@ static void lv_tick_handler(void)
 }
 
 
-bool my_input_read(lv_indev_drv_t * indev,lv_indev_data_t *data )
+bool my_input_read(lv_indev_drv_t * indev, lv_indev_data_t *data )
 {
 
-// Use TFT_eSPI for touch events
-uint8_t bPressed = 0;
-uint16_t nX=0;
-uint16_t nY=0;
-static uint16_t prev_x, prev_y;
+  // Use TFT_eSPI for touch events
+  uint8_t bPressed = 0;
+  uint16_t nX = 0;
+  uint16_t nY = 0;
+  static uint16_t prev_x, prev_y;
 
-bPressed = tft.getTouch(&nX,&nY);
+  bPressed = tft.getTouch(&nX, &nY);
 
-if (bPressed > 0) {
-data->point.x = nX;
-data->point.y = nY;
-data->state = LV_INDEV_STATE_PR;
-prev_x = data->point.x;
-prev_y = data->point.y;
-} else {
-data->point.x = prev_x;
-data->point.y = prev_y;
-data->state = LV_INDEV_STATE_REL;      
-}
+  if (bPressed > 0) {
+    data->point.x = nX;
+    data->point.y = nY;
+    data->state = LV_INDEV_STATE_PR;
+    prev_x = data->point.x;
+    prev_y = data->point.y;
+  } else {
+    data->point.x = prev_x;
+    data->point.y = prev_y;
+    data->state = LV_INDEV_STATE_REL;
+  }
 
-return false; //No buffering so no more data read/
+  return false; //No buffering so no more data read/
 }
 
 /********************************************************
@@ -351,6 +410,7 @@ int blynksendcounter = 1;
 //Update für Display
 unsigned long previousMillisDisplay;  // initialisation at the end of init()
 const long intervalDisplay = 500;
+
 /********************************************************
    BLYNK WERTE EINLESEN und Definition der PINS
 ******************************************************/
@@ -362,7 +422,7 @@ BLYNK_CONNECTED() {
     Blynk.syncAll();
     //rtc.begin();
   }
-  }
+}
 
 BLYNK_WRITE(V4) {
   aggKp = param.asDouble();
@@ -439,10 +499,10 @@ void movAvg() {
   readingstime[readIndex] = millis() ;
   readingstemp[readIndex] = Input ;
 
-  if (readIndex == numReadings - 1) {
-    changerate = (readingstemp[numReadings - 1] - readingstemp[0]) / (readingstime[numReadings - 1] - readingstime[0]) * 10000;
+  if (readIndex == 0) { // geaendert numReadings - 1 auf 0
+    changerate = (readingstemp[0] - readingstemp[numReadings - 1]) / (readingstime[0] - readingstime[numReadings - 1]) * 10000;
   } else {
-    changerate = (readingstemp[readIndex] - readingstemp[readIndex + 1]) / (readingstime[readIndex] - readingstime[readIndex + 1]) * 10000;
+    changerate = (readingstemp[readIndex] - readingstemp[readIndex - 1]) / (readingstime[readIndex] - readingstime[readIndex - 1]) * 10000;
   }
 
   readingchangerate[readIndex] = changerate ;
@@ -453,16 +513,17 @@ void movAvg() {
   }
 
   heatrateaverage = total / numReadings * 100 ;
-  if (heatrateaveragemin > heatrateaverage) {
-    heatrateaveragemin = heatrateaverage ;
+  if (heatrateaveragemin > abs(heatrateaverage)) {
+    heatrateaveragemin = abs(heatrateaverage) ;
   }
 
   if (readIndex >= numReadings - 1) {
     // ...wrap around to the beginning:
     readIndex = 0;
   }
-  readIndex++;
-
+  else {
+    readIndex++;
+  }
 }
 /********************************************************
   check sensor value. If < 0 or difference between old and new >25, then increase error.
@@ -587,27 +648,27 @@ void brew() {
     }
   }
 }
- /********************************************************
-   Check if Wifi is connected, if not reconnect
- *****************************************************/
- void checkWifi(){
-   if (Offlinemodus == 1) return;
-   int statusTemp = WiFi.status();
-   // check WiFi connection:
-   if (statusTemp != WL_CONNECTED) {
-     // (optional) "offline" part of code
+/********************************************************
+  Check if Wifi is connected, if not reconnect
+*****************************************************/
+void checkWifi() {
+  if (Offlinemodus == 1) return;
+  int statusTemp = WiFi.status();
+  // check WiFi connection:
+  if (statusTemp != WL_CONNECTED) {
+    // (optional) "offline" part of code
 
-      // check delay:
-     if (millis() - lastWifiConnectionAttempt >= wifiConnectionDelay) {
-       lastWifiConnectionAttempt = millis();      
-       // attempt to connect to Wifi network:
-       WiFi.begin(ssid, pass); 
-       delay(5000);    //will not work without delay
-       wifiReconnects++;    
-     }
-
+    // check delay:
+    if (millis() - lastWifiConnectionAttempt >= wifiConnectionDelay) {
+      lastWifiConnectionAttempt = millis();
+      // attempt to connect to Wifi network:
+      WiFi.begin(ssid, pass);
+      delay(5000);    //will not work without delay
+      wifiReconnects++;
     }
- }
+
+  }
+}
 /********************************************************
   send data to Blynk server
 *****************************************************/
@@ -653,9 +714,9 @@ void brewdetection() {
   if (Brewdetection == 1 || Brewdetection == 2) {
     if (millis() - timeBrewdetection > brewtimersoftware * 1000) {
       timerBrewdetection = 0 ;
-        if (OnlyPID == 1) {
-      bezugsZeit = 0 ;
-        }
+      if (OnlyPID == 1) {
+        bezugsZeit = 0 ;
+      }
     }
   }
 
@@ -667,71 +728,64 @@ void brewdetection() {
     }
   }
 }
+
+
 /********************************************************
     Timer 1 - ISR für PID Berechnung und Heizrelais-Ausgabe
 ******************************************************/
 //void ICACHE_RAM_ATTR onTimer1ISR() { old esp82
-void IRAM_ATTR onTimer(){
-  
+void IRAM_ATTR onTimer() {
+  portENTER_CRITICAL_ISR(&timerMux);
+  interruptCounter++;
+  portEXIT_CRITICAL_ISR(&timerMux);
+
   //timer1_write(50000); // set interrupt time to 10ms
-    timerAlarmWrite(timer, 10000, true);
-  if (Output <= isrCounter) {
-    digitalWrite(pinRelayHeater, LOW);
-    DEBUG_println("Power off!");
-  } else {
-    digitalWrite(pinRelayHeater, HIGH);
-    DEBUG_println("Power on!");
-  }
+  // timerAlarmWrite(timer, 10000, true);
 
-  isrCounter += 10; // += 10 because one tick = 10ms
-  //set PID output as relais commands
-  if (isrCounter > windowSize) {
-    isrCounter = 0;
-  }
 
-  //run PID calculation
-  lv_tick_inc(10);
-  bPID.Compute();
-  
 }
 
 
-
-
 /***********************
- *    Event Handler
+      Event Handler
  ***********************/
 #include "events.h"
 /*********************
-  *   HOME TAB   *
+      HOME TAB
   *********************/
 #include "tab1.h"
 
 /*********************
- *    GRAPH TAB  
+      GRAPH TAB
  ********************/
 #include "tab2.h"
- /*******************
- *    Settings Tab         
- **********************/
+/*******************
+    Settings Tab
+**********************/
 #include "tab3.h"
+
+//#include "status.h"
+
 
 void setup() {
 
   Serial.begin(115200); /* prepare for possible serial debug */
-
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &onTimer, true);
+  timerAlarmWrite(timer, 10000, true);
+  timerAlarmEnable(timer);
   lv_init();
-  if (SCALE == 1){
-     initScale();
+  if (SCALE == 1) {
+    initScale();
   }
 #if USE_LV_LOG != 0
-  lv_log_register_print(my_print); /* register print function for debugging */
+  lv_log_register_print_cb(my_print); /* register print function for debugging */
 #endif
 
   tft.begin(); /* TFT init */
   tft.setRotation(1); /* Landscape orientation */
 
-  lv_disp_buf_init(&disp_buf, buf, NULL, LV_HOR_RES_MAX * 10);
+  lv_disp_buf_init(&disp_buf, buf, buf2, LV_HOR_RES_MAX * 10);
 
   /*Initialize the display*/
   lv_disp_drv_t disp_drv;
@@ -745,33 +799,51 @@ void setup() {
 
 
 
+  // calibration touch pad
 
-// calibration touch pad
-
-uint16_t calData[5] = { 345, 3290, 506, 2987, 1 };
-tft.setTouch(calData);
-lv_indev_drv_t indev_drv;
-lv_indev_drv_init(&indev_drv);
-indev_drv.type = LV_INDEV_TYPE_POINTER;
-indev_drv.read_cb = my_input_read;
-lv_indev_drv_register(&indev_drv);
-  
+  uint16_t calData[5] = { 223, 3497, 351, 3465, 1 };
+  tft.setTouch(calData);
+  lv_indev_drv_t indev_drv;
+  lv_indev_drv_init(&indev_drv);
+  indev_drv.type = LV_INDEV_TYPE_POINTER;
+  indev_drv.read_cb = my_input_read;
+  lv_indev_drv_register(&indev_drv);
 
   /*Initialize the graphics library's tick*/
   tick.attach_ms(LVGL_TICK_PERIOD, lv_tick_handler);
- 
-  /* Create simple label */
+
   lv_theme_t *th = lv_theme_zen_init(200, NULL);
   lv_theme_set_current(th);
-  
+
   lv_test_theme_1(th);
 
   // settings
+  /*Create style for the Arcs*/
+  static lv_style_t style_loader;
+  lv_style_copy(&style_loader, &lv_style_plain);
+  style_loader.line.color = LV_COLOR_NAVY;           /*Arc color*/
+  style_loader.line.width = 10;                       /*Arc width*/
+
+  /*Create an Arc*/
+  arc4 = lv_arc_create(lv_scr_act(), NULL);
+  lv_arc_set_angles(arc4, 180, 180);
+  lv_arc_set_style(arc4, LV_ARC_STYLE_MAIN, &style_loader);
+  lv_obj_align(arc4, NULL, LV_ALIGN_CENTER, 0, 0);
+
+  /* Create an `lv_task` to update the arc.
+     Store the `arc` in the user data*/
+  lv_task_create(arc_loader, 20, LV_TASK_PRIO_LOWEST, arc4);
 
 
- /********************************************************
-    Define trigger type
-  ******************************************************/
+  labelStartInfo = lv_label_create(lv_scr_act(), NULL);
+  lv_label_set_align(labelStartInfo, LV_LABEL_ALIGN_CENTER);       /*Center aligned lines*/
+  lv_obj_align(labelStartInfo, arc4, LV_ALIGN_IN_BOTTOM_LEFT, 0, 0);
+  lv_label_set_text(labelStartInfo, "Startup...");
+  lv_task_handler();
+
+  /********************************************************
+     Define trigger type
+   ******************************************************/
   if (triggerType)
   {
     relayON = HIGH;
@@ -791,20 +863,25 @@ lv_indev_drv_register(&indev_drv);
   digitalWrite(pinRelayPumpe, relayOFF);
   digitalWrite(pinRelayHeater, LOW);
 
-/********************************************************
-     BLYNK & Fallback offline
-  ******************************************************/
-if (Offlinemodus == 0) {
+  /********************************************************
+       BLYNK & Fallback offline
+    ******************************************************/
+  if (Offlinemodus == 0) {
 
     if (fallback == 0) {
+      lv_label_set_text(labelStartInfo, "Connect to Blynk, no Fallback");
+      lv_task_handler();
 
-//      displaymessage("Connect to Blynk", "no Fallback");
+      //      displaymessage("Connect to Blynk", "no Fallback");
       Blynk.begin(auth, ssid, pass, blynkaddress, 8080);
     }
 
     if (fallback == 1) {
       unsigned long started = millis();
-//      displaymessage("1: Connect Wifi to:", ssid);
+      lv_label_set_text(labelStartInfo, "Connect Wifi...");
+      lv_task_handler();
+
+      //      displaymessage("1: Connect Wifi to:", ssid);
       // wait 10 seconds for connection:
       /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
         would try to act as both a client and an access-point and could cause
@@ -824,7 +901,10 @@ if (Offlinemodus == 0) {
         DEBUG_println("WiFi connected");
         DEBUG_println("IP address: ");
         DEBUG_println(WiFi.localIP());
-  //      displaymessage("2: Wifi connected, ", "try Blynk   ");
+        lv_label_set_text(labelStartInfo, "Wifi connected, try Blynk...");
+        lv_task_handler();
+
+        //      displaymessage("2: Wifi connected, ", "try Blynk   ");
         DEBUG_println("Wifi works, now try Blynk connection");
         delay(2000);
         Blynk.config(auth, blynkaddress, 8080) ;
@@ -832,9 +912,12 @@ if (Offlinemodus == 0) {
 
         // Blnky works:
         if (Blynk.connected() == true) {
-   //       displaymessage("3: Blynk connected", "sync all variables...");
+          lv_label_set_text(labelStartInfo, "Blynk connected, sync variables...");
+          lv_task_handler();
+
+          //       displaymessage("3: Blynk connected", "sync all variables...");
           DEBUG_println("Blynk is online, new values to eeprom");
-         // Blynk.run() ; 
+          // Blynk.run() ;
           Blynk.syncVirtual(V4);
           Blynk.syncVirtual(V5);
           Blynk.syncVirtual(V6);
@@ -851,7 +934,7 @@ if (Offlinemodus == 0) {
           Blynk.syncVirtual(V32);
           Blynk.syncVirtual(V33);
           Blynk.syncVirtual(V34);
-         // Blynk.syncAll();  //sync all values from Blynk server
+          // Blynk.syncAll();  //sync all values from Blynk server
           // Werte in den eeprom schreiben
           // ini eeprom mit begin
           EEPROM.begin(1024);
@@ -871,13 +954,18 @@ if (Offlinemodus == 0) {
           EEPROM.put(130, brewboarder);
           // eeprom schließen
           EEPROM.commit();
-//          display.fillScreen(0);
+          //          display.fillScreen(0);
         }
       }
       if (WiFi.status() != WL_CONNECTED || Blynk.connected() != true) {
-  //      displaymessage("Begin Fallback,", "No Blynk/Wifi");
+        //      displaymessage("Begin Fallback,", "No Blynk/Wifi");
+        lv_label_set_text(labelStartInfo, "Begin Fallback, Blynk/Wifi failed...");
+        lv_task_handler();
+
         delay(2000);
         DEBUG_println("Start offline mode with eeprom values, no wifi or blynk :(");
+        lv_label_set_text(labelStartInfo, "Start offline mode with eeprom values...");
+        lv_task_handler();
         Offlinemodus = 1 ;
         // eeprom öffnen
         EEPROM.begin(1024);
@@ -904,7 +992,9 @@ if (Offlinemodus == 0) {
         }
         else
         {
-   //       displaymessage("No eeprom,", "Value");
+          //       displaymessage("No eeprom,", "Value");
+          lv_label_set_text(labelStartInfo, "No eeprom values, use default offline values...");
+          lv_task_handler();
           DEBUG_println("No working eeprom value, I am sorry, but use default offline value  :)");
           delay(2000);
         }
@@ -970,23 +1060,23 @@ if (Offlinemodus == 0) {
     TIM_DIV16 = 1,  //5MHz (5 ticks/us - 1677721.4 us max)
     TIM_DIV256 = 3  //312.5Khz (1 tick = 3.2us - 26843542.4 us max)
   ******************************************************/
-//  timer1_isr_init();
-//  timer1_attachInterrupt(onTimer1ISR);
-//  timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);   // ALTE TIMER INITIALISIERUNG
-// timer1_write(50000); // set interrupt time to 10ms */
+  //  timer1_isr_init();
+  //  timer1_attachInterrupt(onTimer1ISR);
+  //  timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);   // ALTE TIMER INITIALISIERUNG
+  // timer1_write(50000); // set interrupt time to 10ms */
+  lv_label_set_text(labelStartInfo, "startup successfull, loading tabs...");
+  lv_task_handler();
+  lv_obj_del(arc4);
+  lv_obj_del(labelStartInfo);
 
 
-timer = timerBegin(0, 80, true);
-timerAttachInterrupt(timer, &onTimer, true);
-timerAlarmWrite(timer, 10000, true);
-timerAlarmEnable(timer);
 
 
 }
 void loop() {
- ArduinoOTA.handle();  // For OTA
+  ArduinoOTA.handle();  // For OTA
   // Disable interrupt it OTA is starting, otherwise it will not work
-  ArduinoOTA.onStart([](){
+  ArduinoOTA.onStart([]() {
     //timer1_disable();
     timerAlarmDisable(timer);
 
@@ -997,23 +1087,23 @@ void loop() {
     //timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
   });
   // Enable interrupts if OTA is finished
-  ArduinoOTA.onEnd([](){
+  ArduinoOTA.onEnd([]() {
     //timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
     timerAlarmEnable(timer);
 
   });
-  
-    if (WiFi.status() == WL_CONNECTED){
-     Blynk.run(); //Do Blynk magic stuff
-     wifiReconnects = 0;
-   } else {
-     checkWifi();
-   }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Blynk.run(); //Do Blynk magic stuff
+    wifiReconnects = 0;
+  } else {
+    checkWifi();
+  }
   unsigned long startT;
   unsigned long stopT;
 
   refreshTemp();   //read new temperature values
-//  testEmergencyStop();  // test if Temp is to high
+  //  testEmergencyStop();  // test if Temp is to high
   brew();   //start brewing if button pressed
 
   //check if PID should run or not. If not, set to manuel and force output to zero
@@ -1062,65 +1152,82 @@ void loop() {
       }
       aggbKd = aggbTv * aggbKp ;
       bPID.SetTunings(aggbKp, aggbKi, aggbKd) ;
-      if(OnlyPID == 1){
-      bezugsZeit= millis() - timeBrewdetection ;
+      if (OnlyPID == 1) {
+        bezugsZeit = millis() - timeBrewdetection ;
       }
     }
 
     sendToBlynk();
 
     //update display if time interval xpired
+
     unsigned long currentMillisDisplay = millis();
     if (currentMillisDisplay - previousMillisDisplay >= intervalDisplay) {
       previousMillisDisplay += intervalDisplay;
- /****************************
-  *       CALL EVENT         *               
-  ***************************/
-  lv_event_send(lmeter, LV_EVENT_REFRESH, NULL);
-  lv_event_send(label, LV_EVENT_REFRESH, NULL);
-  lv_event_send(lmeter1, LV_EVENT_REFRESH, NULL);
+      /****************************
+               CALL EVENT
+       ***************************/
 
-    }
+      int cur_tab_id = lv_tabview_get_tab_act(tv);
+      if (cur_tab_id == 0 ) {
+        lv_event_send(lmeter, LV_EVENT_REFRESH, NULL);
+        lv_event_send(label, LV_EVENT_REFRESH, NULL);
+        lv_event_send(lmeter1, LV_EVENT_REFRESH, NULL);
+        lv_event_send(arc, LV_EVENT_REFRESH, NULL);
+      } else if (cur_tab_id == 1) {
+        lv_event_send(chart, LV_EVENT_REFRESH, NULL);
 
-  } else if (sensorError) {
+      }
 
-    //Deactivate PID
-    if (pidMode == 1) {
-      pidMode = 1;
-      bPID.SetMode(pidMode);
-      Output = 1 ;
-    }
+    } else if (sensorError) {
 
-    digitalWrite(pinRelayHeater, LOW); //Stop heating
+      //Deactivate PID
+      if (pidMode == 1) {
+        pidMode = 1;
+        bPID.SetMode(pidMode);
+        Output = 1 ;
+      }
 
-    //DISPLAY AUSGABE
-    if (Display == 2) {
+      digitalWrite(pinRelayHeater, LOW); //Stop heating
 
-      //display.display();
-    }
-    if (Display == 1) {
 
-    }
-  } else if (emergencyStop){
+    } else if (emergencyStop) {
 
-    //Deactivate PID
-    if (pidMode == 1) {
-      pidMode = 0;
-      bPID.SetMode(pidMode);
-      Output = 0 ;
-    }
-        
-    digitalWrite(pinRelayHeater, LOW); //Stop heating
-
-    //DISPLAY AUSGABE
-    if (Display == 2) {
-
-      //display.display();
-    }
-    if (Display == 1) {
+      //Deactivate PID
+      if (pidMode == 1) {
+        pidMode = 0;
+        bPID.SetMode(pidMode);
+        Output = 0 ;
+      }
+      digitalWrite(pinRelayHeater, LOW); //Stop heating
 
     }
   }
-  lv_task_handler(); /* let the GUI do its work */
-  delay(5);
+  if (interruptCounter > 0) {
+    portENTER_CRITICAL(&timerMux);
+    interruptCounter--;
+    portEXIT_CRITICAL(&timerMux);
+    totalInterruptCounter++;
+    if (Output != isrCounter) { // führt dazu, dass der PWR immer sicher an oder aus ist (kein unnötiger Impuls bei Output=isrCounter)
+      if (Output < isrCounter) {
+        digitalWrite(pinRelayHeater, relayOFF);
+        //DEBUG_println("Power off!");
+      } else {
+        digitalWrite(pinRelayHeater, relayON);
+        //DEBUG_println("Power on!");
+      }
+    }
+    isrCounter += 10; // += 10 because one tick = 10ms
+    //set PID output as relais commands
+    if (isrCounter > windowSize) {
+      isrCounter = 0;
+    }
+
+
+    //run PID calculation
+    bPID.Compute();
+
+  }
+
+  lv_task_handler();
 }

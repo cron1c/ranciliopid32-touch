@@ -20,4 +20,3 @@ void statusbar(void)
        lv_obj_align(label2, label1, LV_ALIGN_OUT_LEFT_MID,0,0);
        lv_label_set_text(label2, MY_WATER_SYMBOL);
    }
-

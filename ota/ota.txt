@@ -1,0 +1,3 @@
+FILE=/esp32/cc32t.bin
+VERSION=1
+INTERVAL=10

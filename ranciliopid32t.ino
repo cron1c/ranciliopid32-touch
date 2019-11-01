@@ -11,9 +11,7 @@
 #include <WiFiUdp.h>
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
-#include <ArduinoJson.h>
-const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
-#define FIRMWARE_VERSION 1.9.5
+
 #define MY_CHART_SYMBOL "\xEF\x87\xBE"
 #define MY_CAL_SYMBOL "\xEF\x81\x9B"
 #define MY_SCALE_SYMBOL "\xEF\x89\x8E"
@@ -23,6 +21,8 @@ const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
 #define MY_STEAM_SYMBOL "\xEF\x8B\x8C"
 #define MY_SYMBOL_STOP "\xEF\x81\x9E"
 #define MY_SYMBOL_DOWNLOAD "\xEF\x83\xAD"
+
+const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
 
 /********************************************************
   definitions below must be changed in the userConfig.h file
@@ -34,6 +34,7 @@ const int TempSensor = TEMPSENSOR;
 const int Brewdetection = BREWDETECTION;
 const int fallback = FALLBACK;
 const int triggerType = TRIGGERTYPE;
+const int TSICPIN = TPIN;
 const boolean ota = OTA;
 // create timer
 hw_timer_t * timer = NULL;
@@ -42,16 +43,18 @@ int totalInterruptCounter;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 // Wifi
 const char* auth = AUTH;
-const char* ssid = D_SSID;
-const char* pass = PASS;
+  const char* ssid = D_SSID;
+  const char* pass = PASS;
 
 unsigned long lastWifiConnectionAttempt = millis();
 const unsigned long wifiConnectionDelay = 10000; // try to reconnect every 5 seconds
 unsigned int wifiReconnects = 0; //number of reconnects
 
+
+
 // OTA
-const char* OTAhost = OTAHOST;
-const char* OTApass = OTAPASS;
+const char* OTAhost;
+const char* OTApass;
 
 //Blynk
 const char* blynkaddress  = BLYNKADDRESS;
@@ -130,7 +133,7 @@ lv_obj_t * txt;
         MACROS
  **********************/
 // Debug mode is active if #define DEBUGMODE is set
-//#define DEBUGMODE
+#define DEBUGMODE
 #define USE_LV_LOG 0
 #ifndef DEBUGMODE
 #define DEBUG_println(a)
@@ -180,21 +183,33 @@ void lv_test_theme_1(lv_theme_t * th)
 
 
 
-#if USE_LV_LOG != 0
-/* Serial debugging */
-void my_print(lv_log_level_t level, const char * file, uint32_t line, const char * dsc)
-{
 
-  Serial.printf("%s@%d->%s\r\n", file, line, dsc);
-}
-#endif
 static void event_handler_settings(lv_obj_t * obj, lv_event_t event)
 {
 
 }
+static void event_handler_hide1(lv_obj_t * obj, lv_event_t event)
+{
+  if (event == LV_EVENT_RELEASED) {
+    lv_obj_set_hidden(win, true);
+    lv_win_clean(win);
+  }
+}
+static void event_handler_hide(lv_obj_t * obj, lv_event_t event)
+{
+  if (event == LV_EVENT_RELEASED) {
+    lv_obj_set_hidden(win, true);
+    lv_obj_t * scrl = lv_page_get_scrl(win);
+    lv_obj_clean(scrl);
+    lv_win_clean(win);
+  }
+}
 void list_settings(void)
 {
-
+  /*Add control button to the header*/
+  lv_obj_t * close_btn = lv_win_add_btn(win, LV_SYMBOL_CLOSE);           /*Add close button and use built-in close action*/
+  lv_obj_set_event_cb(close_btn, event_handler_hide);
+  lv_win_add_btn(win, LV_SYMBOL_OK);        /*Add a setup button*/
   /*Create a list*/
   list1 = lv_list_create(win, NULL);
   lv_obj_set_size(list1, 160, 200);
@@ -765,7 +780,8 @@ void IRAM_ATTR onTimer() {
 #include "tab3.h"
 
 //#include "status.h"
-
+ /* init filesystem and load config */
+#include "extConfig.h"
 
 void setup() {
 
@@ -774,6 +790,30 @@ void setup() {
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, 10000, true);
   timerAlarmEnable(timer);
+
+  Serial.println("Mounting FS...");
+
+  if (!SPIFFS.begin()) {
+    Serial.println("Failed to mount file system");
+    return;
+  }
+
+
+  if (!saveConfig()) {
+    Serial.println("Failed to save config");
+  } else {
+    Serial.println("Config saved");
+  }
+
+  if (!loadConfig()) {
+    Serial.println("Failed to load config");
+  } else {
+    Serial.println("Config loaded");
+  }
+
+
+
+
   lv_init();
   if (SCALE == 1) {
     initScale();
@@ -901,6 +941,8 @@ void setup() {
         DEBUG_println("WiFi connected");
         DEBUG_println("IP address: ");
         DEBUG_println(WiFi.localIP());
+        // start the check update task
+        xTaskCreate(&check_update_task, "check_update_task", 8192, NULL, 5, NULL);
         lv_label_set_text(labelStartInfo, "Wifi connected, try Blynk...");
         lv_task_handler();
 
@@ -1068,9 +1110,6 @@ void setup() {
   lv_task_handler();
   lv_obj_del(arc4);
   lv_obj_del(labelStartInfo);
-
-
-
 
 }
 void loop() {

@@ -18,7 +18,7 @@
 #define TRIGGERTYPE HIGH     // LOW = low trigger, HIGH = high trigger relay
 #define OTA true             // true=activate update via OTA
 #define PONE 1             // 1 = P_ON_E (normal), 0 = P_ON_M (spezieller PID Modus, ACHTUNG andere Formel zur Berechnung)
-#define TSICPIN 2
+#define TPIN 2
 #define PUSHNOTIFACTIONS 0
 #define TRESHOLDMAX 1
 #define TRESHOLDMIN 1

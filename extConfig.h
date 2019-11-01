@@ -1,121 +1,77 @@
 #include <ArduinoJson.h>
-#include <SD.h>
+#include <SPIFFS.h>
 #include <SPI.h>
+#include "userConfig.h"
+#define FORMAT_SPIFFS_IF_FAILED true
 
-// Our configuration structure.
-//
-// Never use a JsonDocument to store the configuration!
-// A JsonDocument is *not* a permanent storage; it's only a temporary storage
-// used during the serialization phase. See:
-// https://arduinojson.org/v6/faq/why-must-i-create-a-separate-config-object/
-struct Config {
-  bool autotune;
-  bool neopixel;
-};
-
-const char *filename = "/config.txt";  // <- SD library uses 8.3 filenames
-Config config;                         // <- global configuration object
-
-// Loads the configuration from a file
-void loadConfiguration(const char *filename, Config &config) {
-  // Open file for reading
-  File file = SD.open(filename);
-
-  // Allocate a temporary JsonDocument
-  // Don't forget to change the capacity to match your requirements.
-  // Use arduinojson.org/v6/assistant to compute the capacity.
-  StaticJsonDocument<50> doc;
-
-  // Deserialize the JSON document
-  DeserializationError error = deserializeJson(doc, file);
-  if (error)
-    Serial.println(F("Failed to read file, using default configuration"));
-
-  // Copy values from the JsonDocument to the Config
-  config.port = doc["neopixel"] | false;
-  config.port = doc["autotune"] | false;
-  
-  /* strlcpy(config.hostname,                  // <- destination
-          doc["autotune"] | false,  // <- source
-          sizeof(config.hostname));         // <- destination's capacity */
-
-  // Close the file (Curiously, File's destructor doesn't close the file)
-  file.close();
-}
-
-// Saves the configuration to a file
-void saveConfiguration(const char *filename, const Config &config) {
-  // Delete existing file, otherwise the configuration is appended to the file
-  SD.remove(filename);
-
-  // Open file for writing
-  File file = SD.open(filename, FILE_WRITE);
-  if (!file) {
-    Serial.println(F("Failed to create file"));
-    return;
+bool loadConfig() {
+  File configFile = SPIFFS.open("/config.json", "r");
+  if (!configFile) {
+    Serial.println("Failed to open config file");
+    return false;
   }
 
-  // Allocate a temporary JsonDocument
-  // Don't forget to change the capacity to match your requirements.
-  // Use arduinojson.org/assistant to compute the capacity.
+  size_t size = configFile.size();
+  if (size > 1024) {
+    Serial.println("Config file size is too large");
+    return false;
+  }
+
+  // Allocate a buffer to store contents of the file.
+  std::unique_ptr<char[]> buf(new char[size]);
+
+  // We don't use String here because ArduinoJson library requires the input
+  // buffer to be mutable. If you don't use ArduinoJson, you may as well
+  // use configFile.readString instead.
+  configFile.readBytes(buf.get(), size);
+
   StaticJsonDocument<256> doc;
-
-  // Set the values in the document
-  doc["autotune"] = config.autotune;
-  doc["neopixel"] = config.neopixel;
-
-  // Serialize JSON to file
-  if (serializeJson(doc, file) == 0) {
-    Serial.println(F("Failed to write to file"));
+  auto error = deserializeJson(doc, buf.get());
+  if (error) {
+    Serial.println("Failed to parse config file");
+    return false;
   }
 
-  // Close the file
-  file.close();
+  const char* ssid = doc["D_SSID"];
+  const char* pass = doc["PASS"];
+  const char* auth = doc["AUTH"];
+  const char* OTAhost = doc["OTAHOST"];
+  const char* OTApass = doc["OTAPASS"];
+  int TSICPIN = doc["TPIN"];
+  const char* blynkaddress = doc["BLYNKADDRESS"];
+  // Real world application would store these values in some variables for
+  // later use.
+
+  Serial.print("Loaded serverName: ");
+  Serial.println(ssid);
+  Serial.print("Loaded pass: ");
+  Serial.println(pass);
+  Serial.print("Loaded auth: ");
+  Serial.println(auth);
+  Serial.print("Loaded OTA: ");
+  Serial.println(OTAhost);
+  Serial.print("Loaded TPIN: ");
+  Serial.println(TSICPIN);
+  return true;
 }
 
-// Prints the content of a file to the Serial
-void printFile(const char *filename) {
-  // Open file for reading
-  File file = SD.open(filename);
-  if (!file) {
-    Serial.println(F("Failed to read file"));
-    return;
+bool saveConfig() {
+  StaticJsonDocument<256> doc;
+  doc["D_SSID"] = D_SSID;
+  doc["PASS"] = PASS;
+  doc["AUTH"] = AUTH;
+  doc["OTAHOST"] = OTAHOST;
+  doc["OTAPASS"] = OTAPASS;
+  doc["TPIN"] = TPIN;
+  doc["BLYNKADDRESS"] = BLYNKADDRESS;
+  
+  
+  File configFile = SPIFFS.open("/config.json", "w");
+  if (!configFile) {
+    Serial.println("Failed to open config file for writing");
+    return false;
   }
 
-  // Extract each characters by one by one
-  while (file.available()) {
-    Serial.print((char)file.read());
-  }
-  Serial.println();
-
-  // Close the file
-  file.close();
-}
-
-void setup() {
-  // Initialize serial port
-  Serial.begin(9600);
-  while (!Serial) continue;
-
-  // Initialize SD library
-  while (!SD.begin()) {
-    Serial.println(F("Failed to initialize SD library"));
-    delay(1000);
-  }
-
-  // Should load default config if run for the first time
-  Serial.println(F("Loading configuration..."));
-  loadConfiguration(filename, config);
-
-  // Create configuration file
-  Serial.println(F("Saving configuration..."));
-  saveConfiguration(filename, config);
-
-  // Dump config file
-  Serial.println(F("Print config file..."));
-  printFile(filename);
-}
-
-void loop() {
-  // not used in this example
+  serializeJson(doc, configFile);
+  return true;
 }

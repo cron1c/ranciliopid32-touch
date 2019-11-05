@@ -20,13 +20,7 @@ static void event_handler_btn_matrix(lv_obj_t * obj, lv_event_t event)
     //printf("%s was pressed\n", txt);
   }
 }
-static void event_handler_hide(lv_obj_t * obj, lv_event_t event)
-{
-  lv_obj_del_async(list1);
-  lv_obj_set_hidden(win, true);
-  //lv_list_clean(list1);
-  //lv_obj_del(list1);
-}
+
 static void event_handler_minus(lv_obj_t * obj, lv_event_t event)
 {
   if (event == LV_EVENT_CLICKED) {

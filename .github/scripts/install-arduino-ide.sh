@@ -73,6 +73,7 @@ if [ ! -d "$ARDUINO_IDE_PATH" ]; then
 
 	echo "Arduino IDE Installed in '$ARDUINO_IDE_PATH'"
 	echo ""
+	if [ ! -d "$ARDUINO_IDE_PATH/libraries/lvgl" ]; then git clone https://github.com/littlevgl/lvgl $ARDUINO_IDE_PATH/libraries/lvgl; fi
 	echo "Arduino Libs installed: "
 	ls $ARDUINO_IDE_PATH/libraries
 fi

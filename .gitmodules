@@ -1,3 +1,6 @@
 [submodule "esp32 core"]
 	path = core/esp32
 	url = https://github.com/espressif/arduino-esp32/tree/master/cores/esp32
+[submodule "lvgl librarie"]
+	path = libraries/lv_arduino
+	url = https://github.com/littlevgl/lv_arduino

@@ -34,4 +34,3 @@ if [ ! -d "$ARDUINO_ESP32_PATH" ]; then
 	echo "ESP32 Arduino has been installed in '$ARDUINO_ESP32_PATH'"
 	echo ""
 fi
-arduino-cli lib install lvgl

@@ -70,7 +70,7 @@ if [ ! -d "$ARDUINO_IDE_PATH" ]; then
 
 	mkdir -p "$ARDUINO_USR_PATH/libraries"
 	echo "Try to install Lvgl"
-	if [ ! -d "$HOME/arduino_ide/libraries/lvgl" ]; then git clone https://github.com/littlevgl/lv_arduino $HOME/arduino_ide/libraries/; fi
+	if [ ! -d "$HOME/arduino_ide/libraries/lvgl" ]; then git clone https://github.com/littlevgl/lv_arduino $HOME/arduino_ide/libraries/lvgl; fi
 	mkdir -p "$ARDUINO_USR_PATH/hardware"
 
 	echo "Arduino IDE Installed in '$ARDUINO_IDE_PATH'"

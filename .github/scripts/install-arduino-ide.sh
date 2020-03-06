@@ -74,6 +74,7 @@ if [ ! -d "$ARDUINO_IDE_PATH" ]; then
 	echo "Arduino IDE Installed in '$ARDUINO_IDE_PATH'"
 	echo ""
 	if [ ! -d "$ARDUINO_IDE_PATH/libraries/lvgl" ]; then git clone https://github.com/littlevgl/lv_arduino.git $ARDUINO_IDE_PATH/libraries/lvgl; fi
+	cp -r ./TFT_eSPI $ARDUINO_IDE_PATH/libraries/
 	echo "Arduino Libs installed: "
 	ls $ARDUINO_IDE_PATH/libraries
 fi

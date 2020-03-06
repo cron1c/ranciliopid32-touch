@@ -1,3 +1,0 @@
-[submodule "esp32 core"]
-	path = core/esp32
-	url = https://github.com/espressif/arduino-esp32/tree/master/cores/esp32

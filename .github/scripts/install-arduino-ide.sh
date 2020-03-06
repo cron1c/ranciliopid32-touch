@@ -73,6 +73,8 @@ if [ ! -d "$ARDUINO_IDE_PATH" ]; then
 
 	echo "Arduino IDE Installed in '$ARDUINO_IDE_PATH'"
 	echo ""
+	echo "Arduino Libs installed: "
+	ls $ARDUINO_IDE_PATH/libraries
 fi
 
 function build_sketch(){ # build_sketch <fqbn> <path-to-ino> [extra-options]

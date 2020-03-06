@@ -32,7 +32,7 @@ fi
 
 echo "Updating submodules ..."
 git -C "$GITHUB_WORKSPACE" submodule update --init --recursive > /dev/null 2>&1
-
+arduino-cli lib install lvgl
 if [ "$BUILD_PIO" -eq 0 ]; then
 	# ArduinoIDE Test
 	FQBN="espressif:esp32:esp32:PSRAM=enabled,PartitionScheme=huge_app"

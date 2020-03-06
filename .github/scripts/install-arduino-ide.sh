@@ -69,6 +69,7 @@ if [ ! -d "$ARDUINO_IDE_PATH" ]; then
 	rm -rf "arduino.$ARCHIVE_FORMAT"
 
 	mkdir -p "$ARDUINO_USR_PATH/libraries"
+	echo "Try to install Lvgl"
 	cp -r ./libraries/LittlevGL $ARDUINO_USR_PATH/libraries/
 	mkdir -p "$ARDUINO_USR_PATH/hardware"
 

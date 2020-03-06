@@ -3,7 +3,7 @@ name: ESP32 Arduino CI
 on:
   push:
     branches:
-    - master
+    - beta
     - release/*
   pull_request:
 

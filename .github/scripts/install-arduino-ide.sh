@@ -75,6 +75,7 @@ if [ ! -d "$ARDUINO_IDE_PATH" ]; then
 	echo ""
 	if [ ! -d "$ARDUINO_IDE_PATH/libraries/lvgl" ]; then git clone https://github.com/littlevgl/lv_arduino.git $ARDUINO_IDE_PATH/libraries/lvgl; fi
 	if [ ! -d "$ARDUINO_IDE_PATH/libraries/TFT_eSPI" ]; then git clone https://github.com/Bodmer/TFT_eSPI.git $ARDUINO_IDE_PATH/libraries/TFT_eSPI; fi
+	if [ ! -d "$ARDUINO_IDE_PATH/libraries/H711_ADC" ]; then git clone https://github.com/olkal/HX711_ADC.git $ARDUINO_IDE_PATH/libraries/HX711_ADC; fi
 
 	cp -r ./TFT_eSPI $ARDUINO_IDE_PATH/libraries/
 	echo "Arduino Libs installed: "

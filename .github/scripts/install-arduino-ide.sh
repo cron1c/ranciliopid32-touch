@@ -78,6 +78,7 @@ if [ ! -d "$ARDUINO_IDE_PATH" ]; then
 	if [ ! -d "$ARDUINO_IDE_PATH/libraries/H711_ADC" ]; then git clone https://github.com/olkal/HX711_ADC.git $ARDUINO_IDE_PATH/libraries/HX711_ADC; fi
 	if [ ! -d "$ARDUINO_IDE_PATH/libraries/Blynk" ]; then git clone https://github.com/blynkkk/blynk-library.git $ARDUINO_IDE_PATH/libraries/Blynk; fi
 	if [ ! -d "$ARDUINO_IDE_PATH/libraries/PID" ]; then git clone https://github.com/br3ttb/Arduino-PID-Library.git $ARDUINO_IDE_PATH/libraries/PID; fi
+	if [ ! -d "$ARDUINO_IDE_PATH/libraries/OneWire" ]; then git clone https://github.com/PaulStoffregen/OneWire.git $ARDUINO_IDE_PATH/libraries/OneWire; fi
 
 	cp -r ./TFT_eSPI $ARDUINO_IDE_PATH/libraries/
 	echo "Arduino Libs installed: "

@@ -23,7 +23,7 @@
 #define TRESHOLDMAX 1
 #define TRESHOLDMIN 1
 #define SCALE 0 // 0 = No Scale, 1 = 1 Scale
-//#define SCALE1 16
+#define SCALE1 16
 //#define SCALE2 17
 // Wifi
 #define AUTH "BLYNKAUTH"

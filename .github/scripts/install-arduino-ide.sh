@@ -81,6 +81,7 @@ if [ ! -d "$ARDUINO_IDE_PATH" ]; then
 	if [ ! -d "$ARDUINO_IDE_PATH/libraries/OneWire" ]; then git clone https://github.com/PaulStoffregen/OneWire.git $ARDUINO_IDE_PATH/libraries/OneWire; fi
 	if [ ! -d "$ARDUINO_IDE_PATH/libraries/Dallas" ]; then git clone https://github.com/milesburton/Arduino-Temperature-Control-Library.git $ARDUINO_IDE_PATH/libraries/Dallas; fi
 	if [ ! -d "$ARDUINO_IDE_PATH/libraries/TSIC" ]; then git clone https://github.com/Schm1tz1/arduino-tsic.git $ARDUINO_IDE_PATH/libraries/TSIC; fi
+	if [ ! -d "$ARDUINO_IDE_PATH/libraries/ArduinoJSON" ]; then git clone https://github.com/bblanchon/ArduinoJson.git $ARDUINO_IDE_PATH/libraries/ArduinoJSON; fi
 
 	cp -r ./TFT_eSPI $ARDUINO_IDE_PATH/libraries/
 	echo "Arduino Libs installed: "

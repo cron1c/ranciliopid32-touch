@@ -21,7 +21,7 @@
 #define MY_STEAM_SYMBOL "\xEF\x8B\x8C"
 #define MY_SYMBOL_STOP "\xEF\x81\x9E"
 #define MY_SYMBOL_DOWNLOAD "\xEF\x83\xAD"
-
+#define LV_USE_THEME_ZEN        1
 const char* sysVersion PROGMEM  = "Version 1.9.5-c Master";
 
 /********************************************************
